@@ -1,0 +1,7 @@
+torch-pruning
+torchinfo
+torchsummary
+torchviz
+einops
+scikit-learn
+openpyxl
