@@ -1,13 +1,12 @@
 import torch
 import numpy as np
 
-
 class DatasetInterface: 
-    def __init__(self, name, batch_size, num_workers=1, input_shape=(512, 512)): 
+    def __init__(self, name, batch_size, num_workers): 
         self.name = name
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.input_shape = input_shape
+        self.input_shape = None
         self.trainset = None
         self.valset = None
         self.testset = None
@@ -24,9 +23,7 @@ class DatasetInterface:
                 amount_samples = int(len(dataset) * subset_perc)
             indices = np.random.choice(len(dataset), amount_samples, replace=False)
             dataset = torch.utils.data.Subset(dataset, indices)
-        return torch.utils.data.DataLoader(
-            dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=True)
-
+        return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=True)
 
     def get_input_shape(self):
         dataiter = iter(self.get_trainloader())
@@ -34,19 +31,15 @@ class DatasetInterface:
         input_shape = (1, *inputs.size()[1:])
         return input_shape
     
-
     def get_output_shape(self):
         output_shape = (1, len(self.labels))
         return output_shape
 
-
     def get_trainloader(self, shuffle=True, subset_perc=None):
         return DatasetInterface.get_loader(self.trainset, self.batch_size, self.num_workers, shuffle, subset_perc)
 
-
     def get_valloader(self, shuffle=False, subset_perc=None):
         return DatasetInterface.get_loader(self.valset, self.batch_size, self.num_workers, shuffle, subset_perc)
-
 
     def get_testloader(self, shuffle=False, subset_perc=None):
         return DatasetInterface.get_loader(self.testset, self.batch_size, self.num_workers, shuffle, subset_perc)
