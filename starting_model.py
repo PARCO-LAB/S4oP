@@ -21,11 +21,11 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
 
     # Caricamento iperparametri se non impostati dall'utente
     if epochs is None:
-        epochs = config["datasetLRA"][f"{dataset_name}"]["epochs"]
+        epochs = config[f"{model_name}"][f"{dataset_name}"]["epochs"]
     if batch_size is None:
-        batch_size = config["datasetLRA"][f"{dataset_name}"]["batch_size"]
+        batch_size = config[f"{model_name}"][f"{dataset_name}"]["batch_size"]
     if valsplit is None:
-        valsplit = 0.2
+        valsplit = config["val_split"]
     
     # Se il modello non esiste, lo alleno
     if not os.path.exists(model_path):
@@ -37,17 +37,17 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
             batch_size=batch_size, 
             valsplit=valsplit, 
             num_workers=config["num_workers"], 
-            d_model=config["datasetLRA"][f"{dataset_name}"]["features"],
+            d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
             d_state=64,
-            depth=config["datasetLRA"][f"{dataset_name}"]["depth"],
-            dropout=config["datasetLRA"][f"{dataset_name}"]["dropout"],
-            norm=config["datasetLRA"][f"{dataset_name}"]["norm"],
-            pre_norm=config["datasetLRA"][f"{dataset_name}"]["pre-norm"]
+            depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
+            dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
+            norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
+            pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"]
         )
         print(f"Modello: {model_name}, Dataset: {dataset_name}")
         print(model_train.model)
         criterion = torch.nn.CrossEntropyLoss()
-        optimizer = torch.optim.AdamW(model_train.model.parameters(), lr=config["datasetLRA"][f"{dataset_name}"]["lr"], weight_decay=config["datasetLRA"][f"{dataset_name}"]["wd"])
+        optimizer = torch.optim.AdamW(model_train.model.parameters(), lr=config[f"{model_name}"][f"{dataset_name}"]["lr"], weight_decay=config[f"{model_name}"][f"{dataset_name}"]["wd"])
 
         # Training
         model_train.run(optimizer, criterion, epochs, checkpoints_folder)
@@ -59,12 +59,12 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
                                     batch_size=batch_size, 
                                     valsplit=valsplit,
                                     num_workers=config["num_workers"], 
-                                    d_model=config["datasetLRA"][f"{dataset_name}"]["features"],
+                                    d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
                                     d_state=64,
-                                    depth=config["datasetLRA"][f"{dataset_name}"]["depth"],
-                                    dropout=config["datasetLRA"][f"{dataset_name}"]["dropout"],
-                                    norm=config["datasetLRA"][f"{dataset_name}"]["norm"],
-                                    pre_norm=config["datasetLRA"][f"{dataset_name}"]["pre-norm"]
+                                    depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
+                                    dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
+                                    norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
+                                    pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"]
                                     )
     model_test.run()
 

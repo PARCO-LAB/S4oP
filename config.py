@@ -1,7 +1,7 @@
 # Patience: parametro per l'early stopping
 
 PRUNING_DEFAULT_CONFIG = {
-    "datasetLRA":
+    "s4d":
     {
         "text":
         {
@@ -44,4 +44,5 @@ PRUNING_DEFAULT_CONFIG = {
         },
     },
     "num_workers": 4,
+    "val_split": 0.2
 }
