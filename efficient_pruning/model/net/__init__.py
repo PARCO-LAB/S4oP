@@ -11,9 +11,27 @@ __all__ = {
 }
 
 class NetFactory:
-    def __init__(self, model_name, d_model, num_classes, vocab_size):
+    def __init__(
+        self, 
+        model_name, 
+        vocab_size, 
+        d_model, 
+        d_state,
+        depth,
+        dropout,
+        num_classes,
+        norm,
+        pre_norm
+    ):
         if model_name == "s4d":
-            self.net = __all__["s4d"](d_model=d_model, vocab_size=vocab_size, num_classes=num_classes)
+            self.net = __all__["s4d"](vocab_size=vocab_size,
+                                      d_model=d_model,
+                                      d_state=d_state,
+                                      depth=depth,
+                                      dropout=dropout,
+                                      num_classes=num_classes,
+                                      norm=norm,
+                                      pre_norm=pre_norm)
         else:
             raise ValueError(f"Model {model_name} not recognized")
 

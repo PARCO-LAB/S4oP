@@ -31,7 +31,19 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
     if not os.path.exists(model_path):
 
         # Creazione modello
-        model_train = ModelTrain.from_scratch(model_name=model_name, dataset_name=dataset_name, batch_size=batch_size, valsplit=valsplit, num_workers=config["num_workers"], d_model=config["datasetLRA"][f"{dataset_name}"]["features"])
+        model_train = ModelTrain.from_scratch(
+            model_name=model_name, 
+            dataset_name=dataset_name, 
+            batch_size=batch_size, 
+            valsplit=valsplit, 
+            num_workers=config["num_workers"], 
+            d_model=config["datasetLRA"][f"{dataset_name}"]["features"],
+            d_state=64,
+            depth=config["datasetLRA"][f"{dataset_name}"]["depth"],
+            dropout=config["datasetLRA"][f"{dataset_name}"]["dropout"],
+            norm=config["datasetLRA"][f"{dataset_name}"]["norm"],
+            pre_norm=config["datasetLRA"][f"{dataset_name}"]["pre-norm"]
+        )
         print(f"Modello: {model_name}, Dataset: {dataset_name}")
         print(model_train.model)
         criterion = torch.nn.CrossEntropyLoss()
@@ -43,7 +55,17 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         print("Skipping training because model path {} already exists".format(model_path))
 
     # Testing
-    model_test = ModelTest.from_pth(model_path=model_path, batch_size=batch_size, valsplit=valsplit, num_workers=config["num_workers"], d_model=config["datasetLRA"][f"{dataset_name}"]["features"])
+    model_test = ModelTest.from_pth(model_path=model_path, 
+                                    batch_size=batch_size, 
+                                    valsplit=valsplit,
+                                    num_workers=config["num_workers"], 
+                                    d_model=config["datasetLRA"][f"{dataset_name}"]["features"],
+                                    d_state=64,
+                                    depth=config["datasetLRA"][f"{dataset_name}"]["depth"],
+                                    dropout=config["datasetLRA"][f"{dataset_name}"]["dropout"],
+                                    norm=config["datasetLRA"][f"{dataset_name}"]["norm"],
+                                    pre_norm=config["datasetLRA"][f"{dataset_name}"]["pre-norm"]
+                                    )
     model_test.run()
 
 # Main

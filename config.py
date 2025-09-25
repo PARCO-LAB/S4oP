@@ -1,7 +1,9 @@
+# Patience: parametro per l'early stopping
+
 PRUNING_DEFAULT_CONFIG = {
     "datasetLRA":
     {
-        "imdb":
+        "text":
         {
             "depth": 4,
             "features": 64,
@@ -26,7 +28,20 @@ PRUNING_DEFAULT_CONFIG = {
             "epochs": 50,
             "wd": 0.01,
             "patience": 5
-        }
+        },
+        "imdb":
+        {
+            "depth": 2,
+            "features": 128,
+            "norm": "LN",
+            "pre-norm": False,
+            "dropout": 0.0,
+            "lr": 0.001,
+            "batch_size": 50,
+            "epochs": 20,
+            "wd": 0,
+            "patience": 5
+        },
     },
     "num_workers": 4,
 }

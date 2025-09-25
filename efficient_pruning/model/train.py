@@ -18,11 +18,33 @@ class ModelTrain:
 
     
     @staticmethod
-    def from_scratch(model_name, dataset_name, batch_size, valsplit, num_workers, d_model):
+    def from_scratch(
+        model_name, 
+        dataset_name, 
+        batch_size, 
+        valsplit, 
+        num_workers, 
+        d_model,
+        d_state,
+        depth,
+        dropout,
+        norm,
+        pre_norm
+    ):
         dataset = DatasetFactory(dataset_name=dataset_name, batch_size=batch_size, valsplit=valsplit, num_workers=num_workers).get_dataset()
         num_classes = dataset.get_output_shape()[-1]
         print(f"Num classes: {num_classes}, Input shape: {dataset.input_shape}, d_model: {d_model}")
-        model = NetFactory(model_name=model_name, d_model=d_model, num_classes=num_classes, vocab_size=dataset.vocab_size).get_net()
+        model = NetFactory(
+            model_name=model_name, 
+            vocab_size=dataset.vocab_size, 
+            d_model=d_model, 
+            d_state=d_state,
+            depth=depth,
+            dropout=dropout,     
+            num_classes=num_classes,
+            norm=norm,
+            pre_norm=pre_norm
+        ).get_net()
         model.name = model_name
         return ModelTrain(model, dataset)
 
