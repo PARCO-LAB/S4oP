@@ -58,7 +58,7 @@ class ModelTrain:
 
         for i, data in enumerate(self.trainloader):
             inputs, labels = data
-            inputs, labels = inputs.to(utils.get_device()), labels.to(utils.get_device())
+            inputs, labels = inputs.to(utils.get_device(), non_blocking=True), labels.to(utils.get_device(), non_blocking=True)
 
             optimizer.zero_grad()
             outputs = self.model(inputs)
@@ -94,7 +94,7 @@ class ModelTrain:
         with torch.no_grad():
             for data in self.valloader:
                 inputs, labels = data
-                inputs, labels = inputs.to(utils.get_device()), labels.to(utils.get_device())
+                inputs, labels = inputs.to(utils.get_device(), non_blocking=True), labels.to(utils.get_device(), non_blocking=True)
                 outputs = self.model(inputs)
 
                 _, predicted = outputs.max(1)

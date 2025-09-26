@@ -1,15 +1,11 @@
 import torch
 import time
-import os
 import argparse
 from efficient_pruning.model import ModelTest
 from efficient_pruning.dataset import DatasetFactory
 from efficient_pruning.model.net import NetFactory
 from config import *
 from efficient_pruning.model.utils import *
-import json
-import csv
-from datetime import datetime
 
 def profile_model(model_path):
     config = PRUNING_DEFAULT_CONFIG
@@ -32,7 +28,6 @@ def profile_model(model_path):
                                     )
 
     torch.cuda.empty_cache() if device.type=='cuda' else None
-    start_mem = torch.cuda.memory_allocated(device) if device.type=='cuda' else 0
 
     dataloader = model_test.model_train.dataset.get_testloader()
     batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"]
@@ -42,7 +37,7 @@ def profile_model(model_path):
         for i, (inputs, _) in enumerate(dataloader):
             if i >= batch_size:
                 break
-            inputs = inputs.to(device)
+            inputs = inputs.to(device, non_blocking=True)
             torch.cuda.synchronize() if device.type=='cuda' else None
             t0 = time.time()
             _ = model_test.model_train.model(inputs)
@@ -50,14 +45,12 @@ def profile_model(model_path):
             t1 = time.time()
             timings.append(t1 - t0)
 
-    end_mem = torch.cuda.memory_allocated(device) if device.type=='cuda' else 0
     peak_mem = torch.cuda.max_memory_allocated(device) if device.type=='cuda' else 0
 
     avg_time = sum(timings)/len(timings)
     print(f"Tempo medio di inferenza per batch: {avg_time*1000:.2f} ms")
-    xprint(f"Tempo totale di inferenza: {sum(timings)*1000:.2f} ms")
+    print(f"Tempo totale di inferenza: {sum(timings)*1000:.2f} ms")
     if device.type=='cuda':
-        print(f"Memoria usata (start -> end): {(end_mem-start_mem)/1e6:.2f} MB")
         print(f"Picco di memoria usata: {peak_mem/1e6:.2f} MB")
 
 # Main
