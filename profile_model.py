@@ -1,11 +1,28 @@
 import torch
 import time
 import argparse
+import os
 from efficient_pruning.model import ModelTest
 from efficient_pruning.dataset import DatasetFactory
 from efficient_pruning.model.net import NetFactory
 from config import *
 from efficient_pruning.model.utils import *
+
+def print_model_size(model):
+    print("\n=== Model Size ===")
+
+    # Print total parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total parameters: {total_params:,}")
+
+    # Print trainable parameters
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Trainable parameters: {trainable_params:,}")
+
+    # Print parameters per layer
+    print("\nParameters per layer:")
+    for name, param in model.named_parameters():
+        print(f"{name}: {param.numel():,}")
 
 def profile_model(model_path):
     config = PRUNING_DEFAULT_CONFIG
@@ -48,10 +65,14 @@ def profile_model(model_path):
     peak_mem = torch.cuda.max_memory_allocated(device) if device.type=='cuda' else 0
 
     avg_time = sum(timings)/len(timings)
+    print("\n=== Timing Results ===")
     print(f"Tempo medio di inferenza per batch: {avg_time*1000:.2f} ms")
     print(f"Tempo totale di inferenza: {sum(timings)*1000:.2f} ms")
     if device.type=='cuda':
+        print("\n=== CUDA Memory Usage ===")
         print(f"Picco di memoria usata: {peak_mem/1e6:.2f} MB")
+
+    print_model_size(model_test.model_train.model)
 
 # Main
 if __name__ == "__main__":

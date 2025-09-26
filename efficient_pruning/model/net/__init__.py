@@ -6,7 +6,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import utils
 
 __all__ = {
-    #"s4": s4.s4,
+    "s4": s4.S4,
     "s4d": s4.S4D,
 }
 
@@ -32,8 +32,18 @@ class NetFactory:
                                       num_classes=num_classes,
                                       norm=norm,
                                       pre_norm=pre_norm)
+        elif model_name == "s4":
+            self.net = __all__["s4"](vocab_size=vocab_size,
+                                     d_model=d_model,
+                                     d_state=d_state,
+                                     depth=depth,
+                                     dropout=dropout,
+                                     num_classes=num_classes,
+                                     norm=norm,
+                                     pre_norm=pre_norm)
         else:
             raise ValueError(f"Model {model_name} not recognized")
+        
 
         self.name = model_name
         self.net.name = model_name
