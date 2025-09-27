@@ -17,7 +17,7 @@ class S4D(nn.Module):
         super().__init__()
 
         # Embedding layer: [B, L] -> [B, L, H]
-        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=0)
 
         # Stack di S4D layers
         self.layers = nn.ModuleList([

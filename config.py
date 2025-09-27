@@ -18,15 +18,15 @@ PRUNING_DEFAULT_CONFIG = {
         },
         "listops":
         {
-            "depth": 6,
+            "depth": 8,
             "features": 128,
             "norm": "BN",
             "pre-norm": False,
             "dropout": 0.0,
-            "lr": 0.01,
-            "batch_size": 100,
-            "epochs": 50,
-            "wd": 0.01,
+            "lr": 0.001,
+            "batch_size": 50,
+            "epochs": 40,
+            "wd": 0.05,
             "patience": 5
         },
         "imdb":
