@@ -10,14 +10,14 @@ class LRAListOps(DatasetInterface):
 
         root_data = "data/" 
 
-        # === Carica i file TSV ===
+        # Carica i file TSV
         train_path = os.path.join(root_data, "listops/train.tsv")
         test_path  = os.path.join(root_data, "listops/test.tsv")
 
         train_df = pd.read_csv(train_path, sep="\t", header=0)
         test_df  = pd.read_csv(test_path, sep="\t", header=0)
 
-        # === Costruisci il vocabolario dinamico ===
+        # Vocabolario dinamico 
         unique_tokens = set()
         for seq in list(train_df.iloc[:,0].values) + list(test_df.iloc[:,0].values):
             unique_tokens.update(seq.split())
@@ -32,7 +32,7 @@ class LRAListOps(DatasetInterface):
         # Numero totale di classi (0–9)
         self.labels = list(range(10))
 
-        # === Tokenizza sequenze ===
+        # Funzione di tokenizzazione delle sequenze
         def tokenize_sequence(seq):
             tokens = seq.split()
             return [self.vocab[t] for t in tokens]
@@ -43,7 +43,7 @@ class LRAListOps(DatasetInterface):
         X_test  = [tokenize_sequence(seq) for seq in test_df.iloc[:,0].values]
         y_test  = torch.tensor(test_df.iloc[:,1].values, dtype=torch.long)
 
-        # === Padding ===
+        # Padding
         max_len_train = max(len(x) for x in X_train)
         max_len_test  = max(len(x) for x in X_test)
         max_len = max(max_len_train, max_len_test)
@@ -54,7 +54,7 @@ class LRAListOps(DatasetInterface):
         X_train = torch.tensor([pad_sequence(seq, max_len) for seq in X_train], dtype=torch.long)
         X_test  = torch.tensor([pad_sequence(seq, max_len) for seq in X_test], dtype=torch.long)
 
-        # === Split train/val ===
+        # Split train/val
         val_size = int(valsplit * len(X_train))
         train_size = len(X_train) - val_size
         full_train = TensorDataset(X_train, y_train)

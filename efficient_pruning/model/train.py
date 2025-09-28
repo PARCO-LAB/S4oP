@@ -48,7 +48,6 @@ class ModelTrain:
         model.name = model_name
         return ModelTrain(model, dataset)
 
-
     def train_step(self, epoch, optimizer, loss_criterion):
         self.model.train()
 
@@ -113,16 +112,24 @@ class ModelTrain:
         return val_accuracy
     
 
-    def run(self, optimizer, loss_criterion, epochs, checkpoints_folder=os.path.join(".", "checkpoints")):
+    def run(self, optimizer, scheduler, loss_criterion, epochs, checkpoints_folder=os.path.join(".", "checkpoints")):
         best_val_accuracy = 0.0
         for epoch in range(int(epochs)):
             epoch_loss = self.train_step(epoch, optimizer, loss_criterion)
             val_accuracy, val_loss = self.val_step(loss_criterion)
-            print("[Epoch {} Summary] loss: {:.3f} val_loss {:.3f} val_accuracy: {:.3f} ".format(
+            print("[Epoch {} Summary] loss: {:.3f} val_loss {:.3f} val_accuracy: {:.3f}".format(
                 epoch + 1, epoch_loss, val_loss, val_accuracy))
+            
+            # Step scheduler
+            if scheduler is not None:
+                scheduler.step()
+
+            # Salvataggio modello migliore
             if val_accuracy > best_val_accuracy:
                 best_val_accuracy = val_accuracy
                 self.save("{}_{}_best".format(self.model_name, self.dataset_name), checkpoints_folder=checkpoints_folder)
+
+            # Checkpoint periodici
             if (epoch+1) % 100 == 0:
                 self.save("{}_{}_epoch{}".format(self.model_name, self.dataset_name, epoch), checkpoints_folder=checkpoints_folder)
 

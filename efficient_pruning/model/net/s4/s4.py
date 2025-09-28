@@ -1,6 +1,12 @@
 import torch
 import torch.nn as nn
-from .layer_s4 import S4Block
+from .layer_s4 import S4Block   
+
+def dropout_fn(p):
+    """Dropout helper (come nella repo ufficiale)."""
+    if p > 0.0:
+        return nn.Dropout(p)
+    return nn.Identity()
 
 class S4(nn.Module):
     def __init__(
@@ -16,27 +22,30 @@ class S4(nn.Module):
     ):
         super().__init__()
 
-        # Embedding layer: [B, L] -> [B, L, H]
-        self.embedding = nn.Embedding(vocab_size, d_model)
-
-        # Stack di S4 layers
-        self.layers = nn.ModuleList([
-            S4Block(d_model, d_state=d_state, dropout=dropout)
-            for _ in range(depth)
-        ])
-
-        # Normalizzazione finale (in base alla config)
-        if norm.upper() == "LN":
-            self.norm = nn.LayerNorm(d_model)
-        elif norm.upper() == "BN":
-            # BatchNorm1d aspetta input [B, C, L], quindi va applicata prima del pooling
-            self.norm = nn.BatchNorm1d(d_model)
-        else:
-            raise ValueError(f"Norma non supportata: {norm}")
-
         self.pre_norm = pre_norm
 
-        # Classificazione finale
+        # Embedding layer: [B, L] -> [B, L, H]
+        self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=0)
+
+        # Stack S4D layers + normalizzazione + dropout
+        self.s4_layers = nn.ModuleList()
+        self.norms = nn.ModuleList()
+        self.dropouts = nn.ModuleList()
+
+        for _ in range(depth):
+            self.s4_layers.append(
+                S4Block(d_model, d_state=d_state, dropout=dropout)
+            )
+            if norm.upper() == "LN":
+                self.norms.append(nn.LayerNorm(d_model))
+            elif norm.upper() == "BN":
+                self.norms.append(nn.BatchNorm1d(d_model))
+            else:
+                raise ValueError(f"Norma non supportata: {norm}")
+
+            self.dropouts.append(dropout_fn(dropout))
+
+        # Decoder finale
         self.fc = nn.Linear(d_model, num_classes)
 
     def forward(self, x):
@@ -44,25 +53,37 @@ class S4(nn.Module):
         x = self.embedding(x)     # -> [B, L, H]
         x = x.transpose(1, 2)     # -> [B, H, L]
 
-        # Passa attraverso gli S4D layer
-        for layer in self.layers:
+        for layer, norm, dropout in zip(self.s4_layers, self.norms, self.dropouts):
+            z = x
             if self.pre_norm:
-                # Normalizzazione prima del layer
-                if isinstance(self.norm, nn.BatchNorm1d):
-                    x = self.norm(x)       # BN accetta [B, C, L]
+                # Prenorm
+                if isinstance(norm, nn.BatchNorm1d):
+                    z = norm(z)                
                 else:
-                    x = x.transpose(1, 2)  # [B, L, H]
-                    x = self.norm(x)
-                    x = x.transpose(1, 2)  # torna a [B, H, L]
+                    z = z.transpose(1, 2)     
+                    z = norm(z)
+                    z = z.transpose(1, 2)
 
-            x, _ = layer(x)  # ogni S4D restituisce (out, state)
+            # Apply S4D block
+            z, _ = layer(z)
 
-        # Pooling (media sulle posizioni della sequenza)
+            # Dropout
+            z = dropout(z)
+
+            # Residual connection
+            x = z + x
+
+            if not self.pre_norm:
+                # Postnorm
+                if isinstance(norm, nn.BatchNorm1d):
+                    x = norm(x)
+                else:
+                    x = x.transpose(1, 2)
+                    x = norm(x)
+                    x = x.transpose(1, 2)
+
+        # Pooling: media sulle posizioni della sequenza
         x = x.mean(dim=-1)        # -> [B, H]
 
-        if not self.pre_norm:
-            # Normalizzazione dopo il pooling
-            x = self.norm(x)
-
-        out = self.fc(x)          # -> [B, n_classes]
+        out = self.fc(x)          # -> [B, num_classes]
         return out

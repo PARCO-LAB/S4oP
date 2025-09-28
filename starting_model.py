@@ -1,6 +1,6 @@
 import os
 import argparse
-
+import torch.optim as optim
 import torch
 
 from config import *
@@ -9,6 +9,41 @@ from efficient_pruning.model.utils import set_benchmark, set_seed
 
 set_seed(42)
 set_benchmark(False)
+
+def setup_optimizer(model, lr, weight_decay, epochs):
+    """
+    Setup dell'optimizer per S4 coerente con la repo ufficiale.
+
+    - Parametri speciali (A, B, C, dt) hanno _optim settato
+    e usano lr più piccolo (~1e-3) e no weight decay.
+    - Tutti gli altri parametri usano lr più grande (es. 1e-2) e weight decay.
+    """
+
+    # Tutti i parametri del modello
+    all_parameters = list(model.parameters())
+
+    # Parametri generali (senza attributo _optim)
+    base_params = [p for p in all_parameters if not hasattr(p, "_optim")]
+    optimizer = optim.AdamW(base_params, lr=lr, weight_decay=weight_decay)
+
+    # Raggruppa i parametri speciali (_optim)
+    hps = [getattr(p, "_optim") for p in all_parameters if hasattr(p, "_optim")]
+    # Elimina duplicati mantenendo ordine
+    hps = [
+        dict(s) for s in sorted(
+            list(dict.fromkeys(frozenset(hp.items()) for hp in hps))
+        )
+    ]
+
+    # Aggiunge ogni gruppo speciale all'optimizer
+    for hp in hps:
+        params = [p for p in all_parameters if getattr(p, "_optim", None) == hp]
+        optimizer.add_param_group({"params": params, **hp})
+
+    # Scheduler: CosineAnnealingLR (come nella repo ufficiale)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    return optimizer, scheduler
 
 
 def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_folder):
@@ -47,10 +82,15 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         print(f"Modello: {model_name}, Dataset: {dataset_name}")
         print(model_train.model)
         criterion = torch.nn.CrossEntropyLoss()
-        optimizer = torch.optim.AdamW(model_train.model.parameters(), lr=config[f"{model_name}"][f"{dataset_name}"]["lr"], weight_decay=config[f"{model_name}"][f"{dataset_name}"]["wd"])
+        optimizer, scheduler = setup_optimizer(
+            model_train.model,
+            lr=config[f"{model_name}"][f"{dataset_name}"]["lr"],
+            weight_decay=config[f"{model_name}"][f"{dataset_name}"]["wd"],
+            epochs=epochs
+        )
 
         # Training
-        model_train.run(optimizer, criterion, epochs, checkpoints_folder)
+        model_train.run(optimizer, scheduler, criterion, epochs, checkpoints_folder)
     else: 
         print("Skipping training because model path {} already exists".format(model_path))
 

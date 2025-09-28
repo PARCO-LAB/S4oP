@@ -33,7 +33,7 @@ PRUNING_DEFAULT_CONFIG = {
         {
             "depth": 2,
             "features": 128,
-            "norm": "LN",
+            "norm": "BN",
             "pre-norm": False,
             "dropout": 0.0,
             "lr": 0.001,
@@ -73,7 +73,7 @@ PRUNING_DEFAULT_CONFIG = {
         },
         "imdb":
         {
-            "depth": 2,
+            "depth": 4,
             "features": 128,
             "norm": "LN",
             "pre-norm": False,
