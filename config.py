@@ -66,7 +66,7 @@ PRUNING_DEFAULT_CONFIG = {
             "pre-norm": False,
             "dropout": 0.0,
             "lr": 0.01,
-            "batch_size": 100,
+            "batch_size": 50,
             "epochs": 50,
             "wd": 0.01,
             "patience": 5

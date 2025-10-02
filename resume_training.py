@@ -4,7 +4,7 @@ import torch
 
 from config import *
 from efficient_pruning.model import ModelTrain
-from efficient_pruning.model.utils import set_benchmark, set_seed
+from efficient_pruning.model.utils import set_benchmark, set_seed, setup_optimizer
 from efficient_pruning.model.net import NetFactory
 from efficient_pruning.dataset import DatasetFactory
 
@@ -42,17 +42,17 @@ def resume_training(model_name, dataset_name, checkpoint_path, checkpoints_folde
     model_train.model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"), non_blocking=True)
 
     # Ricrea ottimizzatore
-    optimizer = torch.optim.AdamW(
-        model_train.model.parameters(),
+    optimizer, scheduler = setup_optimizer(
+        model_train.model,
         lr=config[model_name][dataset_name]["lr"],
-        weight_decay=config[model_name][dataset_name]["wd"]
+        weight_decay=config[model_name][dataset_name]["wd"],
+        epochs=config[model_name][dataset_name]["epochs"]
     )
-
     # Loss
     criterion = torch.nn.CrossEntropyLoss()
 
     # Riprendi il training
-    model_train.run(optimizer, criterion, config[model_name][dataset_name]["epochs"], checkpoints_folder)
+    model_train.run(optimizer, scheduler, criterion, config[model_name][dataset_name]["epochs"], checkpoints_folder)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Resume Training from Checkpoint")

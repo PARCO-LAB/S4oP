@@ -125,9 +125,14 @@ class ModelTrain:
                 scheduler.step()
 
             # Salvataggio modello migliore
-            if val_accuracy > best_val_accuracy:
-                best_val_accuracy = val_accuracy
-                self.save("{}_{}_best".format(self.model_name, self.dataset_name), checkpoints_folder=checkpoints_folder)
+            if checkpoints_folder != "checkpoints_pruned":
+                if val_accuracy > best_val_accuracy:
+                    best_val_accuracy = val_accuracy
+                    self.save("{}_{}_best".format(self.model_name, self.dataset_name), checkpoints_folder=checkpoints_folder)
+            else:
+                if val_accuracy > best_val_accuracy:
+                    best_val_accuracy = val_accuracy
+                    self.save("{}_{}_pruned".format(self.model_name, self.dataset_name), checkpoints_folder=checkpoints_folder)
 
             # Checkpoint periodici
             if (epoch+1) % 100 == 0:
@@ -135,6 +140,14 @@ class ModelTrain:
 
     def save(self, name, checkpoints_folder=os.path.join(".", "checkpoints")):
         os.makedirs(checkpoints_folder, exist_ok=True)
+        if checkpoints_folder == "checkpoints_pruned":
+            basename = os.path.basename(name)
+            basename_split = basename.split("_")
+            pruned = basename_split[2]
+            if len(pruned) != 6:
+                name = f"{basename_split[0]}_{basename_split[1]}_pruned{pruned[len(pruned)-1] + 1}"
+            else:
+                name = f"{basename_split[0]}_{basename_split[1]}_pruned0"
         model_path = os.path.join(checkpoints_folder, "{}.pth".format(name))
         self.model.zero_grad()
         torch.save(self.model.state_dict(), model_path)

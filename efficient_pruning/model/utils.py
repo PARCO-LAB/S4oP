@@ -3,6 +3,42 @@ import random
 import signal
 import numpy as np
 import gc
+import torch.optim as optim
+
+def setup_optimizer(model, lr, weight_decay, epochs):
+    """
+    Setup dell'optimizer per S4 coerente con la repo ufficiale.
+
+    - Parametri speciali (A, B, C, dt) hanno _optim settato
+    e usano lr più piccolo (~1e-3) e no weight decay.
+    - Tutti gli altri parametri usano lr più grande (es. 1e-2) e weight decay.
+    """
+
+    # Tutti i parametri del modello
+    all_parameters = list(model.parameters())
+
+    # Parametri generali (senza attributo _optim)
+    base_params = [p for p in all_parameters if not hasattr(p, "_optim")]
+    optimizer = optim.AdamW(base_params, lr=lr, weight_decay=weight_decay)
+
+    # Raggruppa i parametri speciali (_optim)
+    hps = [getattr(p, "_optim") for p in all_parameters if hasattr(p, "_optim")]
+    # Elimina duplicati mantenendo ordine
+    hps = [
+        dict(s) for s in sorted(
+            list(dict.fromkeys(frozenset(hp.items()) for hp in hps))
+        )
+    ]
+
+    # Aggiunge ogni gruppo speciale all'optimizer
+    for hp in hps:
+        params = [p for p in all_parameters if getattr(p, "_optim", None) == hp]
+        optimizer.add_param_group({"params": params, **hp})
+
+    # Scheduler: CosineAnnealingLR (come nella repo ufficiale)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    return optimizer, scheduler
 
 
 def get_device():
