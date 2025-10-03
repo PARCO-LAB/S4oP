@@ -72,7 +72,6 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
     model_test.run()
 
     # Model Info
-    print("=== MODEL INFO ===")
     model_info = ModelInfo(
         model=model_test.model, 
         vocab_size=model_test.dataset.vocab_size, 
@@ -81,7 +80,7 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         dataset_name=dataset_name
     )
     model_info.torchinfo(output_dir="model_info")
-    model_info.torchviz(output_dir="model_info")
+    print("Model info saved in model_info folder")
 
 # Main
 if __name__ == "__main__":

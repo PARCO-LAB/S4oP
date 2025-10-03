@@ -125,7 +125,8 @@ class ModelTrain:
                 scheduler.step()
 
             # Salvataggio modello migliore
-            if checkpoints_folder != "checkpoints_pruned":
+            if checkpoints_folder != "./checkpoints_pruned":
+                print(checkpoints_folder)
                 if val_accuracy > best_val_accuracy:
                     best_val_accuracy = val_accuracy
                     self.save("{}_{}_best".format(self.model_name, self.dataset_name), checkpoints_folder=checkpoints_folder)

@@ -1,6 +1,6 @@
 import argparse
 import os
-from efficient_pruning.prune.prune_test import prune_random_channels
+from efficient_pruning.prune.prune_test_2 import prune_random_channels
 from efficient_pruning.model import FineTuning, ModelTest
 from pruning_test_config import *
 from config import *
