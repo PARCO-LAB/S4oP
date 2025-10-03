@@ -91,6 +91,17 @@ def input_output_hook(module, inputs, output):
     module._input = inp
     module._output = out
 
+    if inp is not None and hasattr(inp, "shape"):
+        module.input_shape = tuple(inp.shape)
+    else:
+        module.input_shape = None
+
+    if out is not None and hasattr(out, "shape"):
+        module.output_shape = tuple(out.shape)
+    else:
+        module.output_shape = None
+
+
 @torch.no_grad()
 def augment_names(model):
     i = 0
@@ -229,7 +240,7 @@ class ModelInfo:
         with open(os.path.join(output_dir, f"{self.model_name}_{self.dataset_name}_torchsummary.txt"), "w") as text_file:
             text_file.write(str(info))
 
-    @torch.no_grad()
+    """ @torch.no_grad()
     def summary(self, output_dir="."):
         
         data = {}
@@ -257,7 +268,7 @@ class ModelInfo:
         with open(os.path.join(output_dir, "{}_{}_summary.json".format(self.model_name, self.dataset_name)), "w") as json_file:
             json.dump(data, json_file, indent=4)
             
-        return data
+        return data """
 
 
     def get_example_input_data(self):
