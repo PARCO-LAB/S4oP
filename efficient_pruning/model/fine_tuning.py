@@ -19,7 +19,6 @@ class FineTuning:
     def run(self): 
         criterion = torch.nn.CrossEntropyLoss()
 
-        # Usa setup_optimizer, coerente con training standard
         optimizer, scheduler = setup_optimizer(
             model=self.model_train.model,
             lr=self.lr,
@@ -27,7 +26,6 @@ class FineTuning:
             epochs=self.epochs
         )
 
-        # Lancia il training
         self.model_train.run(
             optimizer=optimizer,
             scheduler=scheduler,

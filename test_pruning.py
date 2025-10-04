@@ -1,13 +1,12 @@
 import argparse
 import os
 from efficient_pruning.prune.prune_test_2 import prune_random_channels
-from efficient_pruning.model import FineTuning, ModelTest
+from efficient_pruning.model import FineTuning, ModelTest, ModelInfo
 from pruning_test_config import *
 from config import *
 
 def prune_and_finetune(model_name, 
                        dataset_name, 
-                       perc_channels, 
                        mode,
                        checkpoint_folder):
     
@@ -31,8 +30,8 @@ def prune_and_finetune(model_name,
 
     print(f"=== PRUNING MODE: {mode} ===")
 
-    if mode == "one-shot":
-        pruned_model = prune_random_channels(model, perc_channels=perc_channels)
+    if mode.startswith("one-shot"):
+        pruned_model = prune_random_channels(model, perc_channels=config2["perc_channels"])
 
         print("=== FINE-TUNING FINALE ===")
         trainer = FineTuning(
@@ -45,17 +44,17 @@ def prune_and_finetune(model_name,
         )
         trainer.run()
 
-    elif mode == "iterative":
+    elif mode.startswith("iterative"):
         pruned_model = model
         for it in range(config2["iterations"]):
             print(f"\n--- Iterazione {it+1}/{config2['iterations']} ---")
-            pruned_model = prune_random_channels(pruned_model, perc_channels=perc_channels)
+            pruned_model = prune_random_channels(pruned_model, perc_channels=config2["perc_channels"])
 
             print("=== MINI FINE-TUNING ===")
             trainer = FineTuning(
                 model=pruned_model,
                 dataset=dataset,
-                epochs=max(1, config2["finetune_epochs"] // config2["iterations"]),
+                epochs=config2["finetune_epochs"],
                 lr=config2["lr"],
                 weight_decay=config2["weight_decay"],
                 checkpoint_folder=checkpoint_folder
@@ -81,13 +80,6 @@ if __name__ == "__main__":
         required=True,
         help="Dataset name")
     parser.add_argument(
-        "--perc_channels", "-p", 
-        type=float,
-        dest="perc_channels",
-        required=True, 
-        default=1,
-        help="Numero di canali H da prunare per step")
-    parser.add_argument(
         "--mode", "-M",
         dest="mode",
         required=True,
@@ -104,7 +96,6 @@ if __name__ == "__main__":
     model, dataset = prune_and_finetune(
         args.model_name,
         args.dataset_name,
-        args.perc_channels,
         args.mode,
         args.checkpoint_folder
     )
@@ -115,3 +106,14 @@ if __name__ == "__main__":
     )
 
     model_test.run()
+
+    # Model Info
+    config = PRUNING_DEFAULT_CONFIG
+    model_info = ModelInfo(
+        model=model_test.model, 
+        vocab_size=model_test.dataset.vocab_size, 
+        seq_len=model_test.dataset.input_shape[1], 
+        batch_size=config[args.model_name][args.dataset_name]["batch_size"], 
+        dataset_name=args.dataset_name
+    )
+    model_info.torchinfo(output_dir="model_info_pruned", mode=args.mode)

@@ -220,16 +220,15 @@ class ModelInfo:
 
 
     @torch.no_grad()
-    def torchinfo(self, output_dir="."):
-
-        info = torchinfo.summary(
-            self.model,
+    def torchinfo(self, output_dir, mode):
+        info = torchinfo.summary( 
+            self.model, 
             input_size=(self.batch_size, self.seq_len), 
             col_names=("input_size", "output_size", "num_params", "mult_adds"), 
-            verbose=0,
-            dtypes=[torch.long],)
+            verbose=0, 
+            dtypes=[torch.long])
 
-        with open(os.path.join(output_dir, f"{self.model_name}_{self.dataset_name}_torchinfo.txt"), "w") as text_file:
+        with open(os.path.join(output_dir, f"{self.model_name}_{self.dataset_name}_torchinfo_{mode}.txt"), "w") as text_file:
             text_file.write(str(info))
 
 

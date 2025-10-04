@@ -114,41 +114,55 @@ class ModelTrain:
 
     def run(self, optimizer, scheduler, loss_criterion, epochs, checkpoints_folder=os.path.join(".", "checkpoints")):
         best_val_accuracy = 0.0
+
+        # Determina il nome base del file per questa run
+        if checkpoints_folder == "./checkpoints_pruned":
+            base_name = f"{self.model_name}_{self.dataset_name}_pruned"
+        else:
+            base_name = f"{self.model_name}_{self.dataset_name}_best"
+
+        # Genera un nome univoco per questa run (se esiste già, aggiunge indice)
+        model_path = self._generate_run_model_path(base_name, checkpoints_folder)
+
         for epoch in range(int(epochs)):
             epoch_loss = self.train_step(epoch, optimizer, loss_criterion)
             val_accuracy, val_loss = self.val_step(loss_criterion)
-            print("[Epoch {} Summary] loss: {:.3f} val_loss {:.3f} val_accuracy: {:.3f}".format(
-                epoch + 1, epoch_loss, val_loss, val_accuracy))
-            
-            # Step scheduler
+            print(f"[Epoch {epoch+1} Summary] loss: {epoch_loss:.3f} val_loss {val_loss:.3f} val_accuracy: {val_accuracy:.3f}")
+
             if scheduler is not None:
                 scheduler.step()
 
-            # Salvataggio modello migliore
-            if checkpoints_folder != "./checkpoints_pruned":
-                print(checkpoints_folder)
-                if val_accuracy > best_val_accuracy:
-                    best_val_accuracy = val_accuracy
-                    self.save("{}_{}_best".format(self.model_name, self.dataset_name), checkpoints_folder=checkpoints_folder)
-            else:
-                if val_accuracy > best_val_accuracy:
-                    best_val_accuracy = val_accuracy
-                    self.save("{}_{}_pruned".format(self.model_name, self.dataset_name), checkpoints_folder=checkpoints_folder)
+            # Salvataggio best: sempre nello stesso file di questa run
+            if val_accuracy > best_val_accuracy:
+                best_val_accuracy = val_accuracy
+                self.save(model_path)
 
-            # Checkpoint periodici
-            if (epoch+1) % 100 == 0:
-                self.save("{}_{}_epoch{}".format(self.model_name, self.dataset_name, epoch), checkpoints_folder=checkpoints_folder)
+            # Salvataggi periodici opzionali ogni 100 epoche
+            if (epoch + 1) % 100 == 0:
+                periodic_name = f"{self.model_name}_{self.dataset_name}_epoch{epoch+1}.pth"
+                periodic_path = os.path.join(checkpoints_folder, periodic_name)
+                self.save(periodic_path)
 
-    def save(self, name, checkpoints_folder=os.path.join(".", "checkpoints")):
+
+    def _generate_run_model_path(self, base_name, checkpoints_folder):
+        """
+        Genera il path corretto per il file best di QUESTA run:
+        - Se non esiste base_name.pth → usa quello.
+        - Se esiste → aggiunge indice _1, _2, ecc.
+        """
         os.makedirs(checkpoints_folder, exist_ok=True)
-        if checkpoints_folder == "checkpoints_pruned":
-            basename = os.path.basename(name)
-            basename_split = basename.split("_")
-            pruned = basename_split[2]
-            if len(pruned) != 6:
-                name = f"{basename_split[0]}_{basename_split[1]}_pruned{pruned[len(pruned)-1] + 1}"
-            else:
-                name = f"{basename_split[0]}_{basename_split[1]}_pruned0"
-        model_path = os.path.join(checkpoints_folder, "{}.pth".format(name))
+        base_path = os.path.join(checkpoints_folder, f"{base_name}.pth")
+        if not os.path.exists(base_path):
+            return base_path
+
+        # Se esiste già, cerca un indice libero
+        i = 1
+        while True:
+            indexed_path = os.path.join(checkpoints_folder, f"{base_name}_{i}.pth")
+            if not os.path.exists(indexed_path):
+                return indexed_path
+            i += 1
+
+    def save(self, path):
         self.model.zero_grad()
-        torch.save(self.model.state_dict(), model_path)
+        torch.save(self.model.state_dict(), path)
