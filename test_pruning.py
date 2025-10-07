@@ -1,7 +1,11 @@
 import argparse
 import os
-from efficient_pruning.prune.prune_test_2 import prune_random_channels
+import torch
+import time
+
+from efficient_pruning.prune.prune_test import prune_random_channels, remove_all_masks
 from efficient_pruning.model import FineTuning, ModelTest, ModelInfo
+from efficient_pruning.model.utils import get_device
 from pruning_test_config import *
 from config import *
 
@@ -9,6 +13,10 @@ def prune_and_finetune(model_name,
                        dataset_name, 
                        mode,
                        checkpoint_folder):
+    
+    path = os.path.join(checkpoint_folder, f"{model_name}_{dataset_name}_{mode}.pth")
+    if os.path.exists(path):
+        raise ValueError(f"Il file {path} esiste già. Scegliere un'altra cartella o un altro nome per il file.")
     
     config1 = PRUNING_DEFAULT_CONFIG
     config2 = PRUNING_CONFIG[mode]
@@ -109,11 +117,44 @@ if __name__ == "__main__":
 
     # Model Info
     config = PRUNING_DEFAULT_CONFIG
-    model_info = ModelInfo(
+    """ model_info = ModelInfo(
         model=model_test.model, 
         vocab_size=model_test.dataset.vocab_size, 
         seq_len=model_test.dataset.input_shape[1], 
         batch_size=config[args.model_name][args.dataset_name]["batch_size"], 
         dataset_name=args.dataset_name
     )
-    model_info.torchinfo(output_dir="model_info_pruned", mode=args.mode)
+    model_info.torchinfo(output_dir="model_info_pruned", mode=args.mode) """
+
+    device = get_device()
+    torch.cuda.empty_cache() if device.type=='cuda' else None
+    if device.type=='cuda':
+        torch.cuda.reset_peak_memory_stats(device)
+
+    dataloader = model_test.model_train.dataset.get_testloader()
+    batch_size=config[args.model_name][args.dataset_name]["batch_size"]
+    timings = []
+
+    with torch.no_grad():
+        for i, (inputs, _) in enumerate(dataloader):
+            if i >= batch_size:
+                break
+            inputs = inputs.to(device, non_blocking=True)
+            torch.cuda.synchronize() if device.type=='cuda' else None
+            t0 = time.time()
+            _ = model_test.model_train.model(inputs)
+            torch.cuda.synchronize() if device.type=='cuda' else None
+            t1 = time.time()
+            timings.append(t1 - t0)
+
+    peak_mem = torch.cuda.max_memory_allocated(device) if device.type=='cuda' else 0
+
+    avg_time = sum(timings)/len(timings)
+    print("\n=== Timing Results ===")
+    print(f"Tempo medio di inferenza per batch: {avg_time*1000:.2f} ms")
+    print(f"Tempo totale di inferenza: {sum(timings)*1000:.2f} ms")
+    # Non ha senso perchè tanto la funzione di hook sballa tutto
+    """ if device.type=='cuda':
+        print("\n=== CUDA Memory Usage ===")
+        print(f"Picco di memoria usata: {peak_mem/1e6:.2f} MB") """
+    

@@ -45,6 +45,8 @@ def profile_model(model_path):
                                     )
 
     torch.cuda.empty_cache() if device.type=='cuda' else None
+    if device.type=='cuda':
+        torch.cuda.reset_peak_memory_stats(device)
 
     dataloader = model_test.model_train.dataset.get_testloader()
     batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"]

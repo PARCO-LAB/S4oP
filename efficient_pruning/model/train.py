@@ -145,11 +145,6 @@ class ModelTrain:
 
 
     def _generate_run_model_path(self, base_name, checkpoints_folder):
-        """
-        Genera il path corretto per il file best di QUESTA run:
-        - Se non esiste base_name.pth → usa quello.
-        - Se esiste → aggiunge indice _1, _2, ecc.
-        """
         os.makedirs(checkpoints_folder, exist_ok=True)
         base_path = os.path.join(checkpoints_folder, f"{base_name}.pth")
         if not os.path.exists(base_path):
@@ -162,6 +157,14 @@ class ModelTrain:
             if not os.path.exists(indexed_path):
                 return indexed_path
             i += 1
+
+    """ def save(self, path):
+            self.model.zero_grad()
+            if "pruned" in path:
+                torch.save(self.model, path)
+            else:
+                torch.save(self.model.state_dict(), path)"""
+
 
     def save(self, path):
         self.model.zero_grad()
