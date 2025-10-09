@@ -4,7 +4,8 @@ import torch
 
 from config import *
 from efficient_pruning.model import ModelTrain, ModelTest, ModelInfo
-from efficient_pruning.model.utils import set_benchmark, set_seed, setup_optimizer
+from efficient_pruning.model.utils import set_benchmark, set_seed, setup_optimizer, get_device
+from efficient_pruning.prune.prune1 import mask_hook
 
 set_seed(42)
 set_benchmark(False)
@@ -58,12 +59,33 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         model_train.run(optimizer, scheduler, criterion, epochs, checkpoints_folder)
     elif pruned_model_index is not None:
         # Se il modello esiste, carico il modello potato
-        if not os.path.exists("./checkpoints_pruned/{}_{}_{}.pth".format(model_name, dataset_name, pruned_model_index)):
-            raise FileNotFoundError("Pruned model {}_{}_{}.pth not found!".format(model_name, dataset_name, pruned_model_index))
+        if not os.path.exists("./checkpoints_pruned2/{}_{}_pruned_{}.pth".format(model_name, dataset_name, pruned_model_index)):
+            raise FileNotFoundError("Pruned model {}_{}_pruned_{}.pth not found!".format(model_name, dataset_name, pruned_model_index))
         else:
-            print("Pruned model {}_{}_{} found! Skipping training.".format(model_name, dataset_name, pruned_model_index))
+            print("Pruned model {}_{}_pruned_{} found! Skipping training.".format(model_name, dataset_name, pruned_model_index))
 
-        # TODO: testing del modello prunato
+            # Ri-creo il modello e carico i pesi mascherati
+            model_test = ModelTest.from_pth(model_path=model_path, 
+                                        batch_size=batch_size, 
+                                        valsplit=valsplit,
+                                        num_workers=config["num_workers"], 
+                                        d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
+                                        d_state=64,
+                                        depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
+                                        dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
+                                        norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
+                                        pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"]
+                                        )
+            checkpoint = torch.load("./checkpoints_pruned2/{}_{}_pruned_{}.pth".format(model_name, dataset_name, pruned_model_index), map_location=get_device())
+            model_test.model.load_state_dict(checkpoint["state_dict"], strict=False)
+
+            # Ricrea le maschere nei layer corrispondenti
+            for name, layer in model_test.model.named_modules():
+                if name in checkpoint["masks"]:
+                    layer.register_buffer("mask", checkpoint["masks"][name].to(get_device()))
+                    layer._mask_hook_handle = layer.register_forward_hook(mask_hook)
+            
+            model_test.run()
     else: 
         print("Skipping training because model path {} already exists".format(model_path))
 

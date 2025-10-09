@@ -8,6 +8,9 @@ from efficient_pruning.model.net import NetFactory
 from config import *
 from efficient_pruning.model.utils import *
 
+set_seed(42)
+set_benchmark(False)
+
 def print_model_size(model):
     print("\n=== Model Size ===")
 
@@ -51,6 +54,18 @@ def profile_model(model_path):
     dataloader = model_test.model_train.dataset.get_testloader()
     batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"]
     timings = []
+
+    # Warm-up CUDA
+    """ with torch.no_grad():
+        for i, (inputs, _) in enumerate(dataloader):
+            if i >= batch_size:
+                break
+            inputs = inputs.to(device, non_blocking=True)
+            torch.cuda.synchronize() if device.type=='cuda' else None
+            t0 = time.time()
+            _ = model_test.model_train.model(inputs)
+            torch.cuda.synchronize() if device.type=='cuda' else None
+            t1 = time.time() """
 
     with torch.no_grad():
         for i, (inputs, _) in enumerate(dataloader):

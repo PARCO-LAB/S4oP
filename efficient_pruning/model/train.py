@@ -116,7 +116,7 @@ class ModelTrain:
         best_val_accuracy = 0.0
 
         # Determina il nome base del file per questa run
-        if checkpoints_folder == "./checkpoints_pruned":
+        if checkpoints_folder == "./checkpoints_pruned1" or checkpoints_folder == "./checkpoints_pruned2":
             base_name = f"{self.model_name}_{self.dataset_name}_pruned"
         else:
             base_name = f"{self.model_name}_{self.dataset_name}_best"
@@ -168,4 +168,21 @@ class ModelTrain:
 
     def save(self, path):
         self.model.zero_grad()
-        torch.save(self.model.state_dict(), path)
+        if "pruned" in path:
+            saved_masks = {}
+
+            # Salva solo le mask registrate nei layer
+            for name, layer in self.model.named_modules():
+                if hasattr(layer, "mask"):
+                    saved_masks[name] = layer.mask
+
+            # Salva sia i pesi che le mask
+            torch.save(
+                {
+                    "state_dict": self.model.state_dict(),
+                    "masks": saved_masks,
+                },
+                path
+            )
+        else:
+            torch.save(self.model.state_dict(), path)

@@ -1,9 +1,11 @@
 from .listops import *
 from .imdb import *
+from .pathfinder import *
 
 __all__ = {
     "listops": LRAListOps,
     "imdb": IMDB,
+    "pathfinder": LRAPathfinder
 }
 
 class DatasetFactory: 
