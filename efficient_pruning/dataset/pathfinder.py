@@ -1,20 +1,24 @@
 import os
 import torch
-import numpy as np
 from torch.utils.data import TensorDataset, random_split
 from torchvision import transforms
 from PIL import Image
 from .interface import DatasetInterface
 
+
 class LRAPathfinder(DatasetInterface):
     def __init__(self, batch_size, valsplit, num_workers):
         super().__init__("pathfinder", batch_size, num_workers)
 
-        root_data = "data/pathfinder"
+        # Percorso base
+        root_data = "../pathfinder"
         imgs_dir = os.path.join(root_data, "imgs")
         metadata_dir = os.path.join(root_data, "metadata")
 
-        # Trasformazioni base: ridimensiona e converte in tensore normalizzato
+        if not os.path.exists(imgs_dir) or not os.path.exists(metadata_dir):
+            raise FileNotFoundError(f"Cartelle imgs/ o metadata/ non trovate in {root_data}")
+
+        # Trasformazioni immagini
         self.transform = transforms.Compose([
             transforms.Resize((128, 128)),
             transforms.ToTensor(),
@@ -23,46 +27,66 @@ class LRAPathfinder(DatasetInterface):
         img_tensors = []
         labels = []
 
-        # Scorri tutte le sottocartelle di imgs/
         for folder_name in sorted(os.listdir(imgs_dir)):
             folder_path = os.path.join(imgs_dir, folder_name)
-            meta_path = os.path.join(metadata_dir, f"{folder_name}.npy")
+            meta_path = os.path.join(metadata_dir, f"{folder_name}.txt")  # ora .txt
 
             if not os.path.isdir(folder_path) or not os.path.exists(meta_path):
                 continue
 
-            # Carica metadati (ogni riga: [idx, label, ...])
-            meta = np.load(meta_path)
-            if meta.ndim == 1:
-                meta = np.expand_dims(meta, axis=0)
+            # Lettura file txt
+            try:
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    lines = [line.strip() for line in f if line.strip()]
+            except UnicodeDecodeError:
+                with open(meta_path, "r", encoding="latin-1", errors="ignore") as f:
+                    lines = [line.strip() for line in f if line.strip()]
 
-            for row in meta:
-                idx, label = int(row[0]), int(row[1])
-                img_path = os.path.join(folder_path, f"sample_{idx}.png")
+            for line in lines:
+                parts = line.split()
+                if len(parts) < 4:
+                    continue
+
+                # Combina cartella + file
+                img_rel_path = os.path.join(parts[0], parts[1])  # es: 'imgs/0/sample_0.png'
+                img_path = os.path.join(root_data, img_rel_path)
+
+                try:
+                    label = int(parts[3])
+                except ValueError:
+                    continue
 
                 if os.path.exists(img_path):
-                    # Apri immagine e applica trasformazioni
-                    img = Image.open(img_path).convert("RGB")
-                    img_tensor = self.transform(img)
-                    img_tensors.append(img_tensor)
-                    labels.append(label)
+                    try:
+                        img = Image.open(img_path).convert("RGB")
+                        img_tensor = self.transform(img)  # [C, H, W]
 
-        # Converti in tensori
-        X = torch.stack(img_tensors)
+                        # Trasforma in sequenza [L, C]: [H*W, C]
+                        C, H, W = img_tensor.shape
+                        img_tensor = img_tensor.permute(1, 2, 0).contiguous().view(H*W, C)
+
+                        img_tensors.append(img_tensor)
+                        labels.append(label)
+                    except Exception as e:
+                        print(f"Immagine saltata: {img_path} ({e})")
+                        continue
+
+        if len(img_tensors) == 0:
+            raise RuntimeError("Nessuna immagine trovata! Controlla la struttura delle cartelle e i nomi dei file.")
+
+        # Tensori e split
+        X = torch.stack(img_tensors)  # [N, L, C]
         y = torch.tensor(labels, dtype=torch.long)
 
-        # Split train/val/test
         val_size = int(valsplit * len(X))
-        test_size = int(0.1 * len(X))  # 10% per test (puoi cambiare)
+        test_size = int(0.1 * len(X))
         train_size = len(X) - val_size - test_size
 
         full_dataset = TensorDataset(X, y)
         self.trainset, self.valset, self.testset = random_split(full_dataset, [train_size, val_size, test_size])
 
-        # Imposta forma di input
-        self.input_shape = (batch_size,) + tuple(X.shape[1:])
+        self.input_shape = (batch_size,) + tuple(X.shape[1:])  # [B, L, C]
         self.labels = sorted(list(set(labels)))
 
         print(f"LRAPathfinder: {len(self.trainset)} train, {len(self.valset)} val, {len(self.testset)} test")
         print(f"Input shape: {self.input_shape}, num_classes={len(self.labels)}")
-

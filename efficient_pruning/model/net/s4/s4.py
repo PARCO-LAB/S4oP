@@ -19,13 +19,19 @@ class S4(nn.Module):
         norm,       # "LN" (LayerNorm) oppure "BN" (BatchNorm)
         pre_norm,   # se normalizzare prima o dopo il blocco
         d_state=64, # stato interno di S4D
+        
     ):
         super().__init__()
 
         self.pre_norm = pre_norm
 
-        # Embedding layer: [B, L] -> [B, L, H]
-        self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=0)
+        if vocab_size is None:
+            # Dataset PathFinder → embedding continuo
+            self.embedding = nn.Linear(3, d_model)
+        else:
+            # Dataset discreto → embedding token
+            # Embedding layer: [B, L] -> [B, L, H]
+            self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=0)
 
         # Stack S4D layers + normalizzazione + dropout
         self.s4_layers = nn.ModuleList()

@@ -36,7 +36,7 @@ class ModelTrain:
         print(f"Num classes: {num_classes}, Input shape: {dataset.input_shape}, d_model: {d_model}")
         model = NetFactory(
             model_name=model_name, 
-            vocab_size=dataset.vocab_size, 
+            vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else None,
             d_model=d_model, 
             d_state=d_state,
             depth=depth,

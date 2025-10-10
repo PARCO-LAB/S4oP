@@ -23,9 +23,14 @@ class S4D(nn.Module):
         super().__init__()
 
         self.pre_norm = pre_norm
-
-        # Embedding layer: [B, L] -> [B, L, H]
-        self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=0)
+        
+        if vocab_size is None:
+            # Dataset PathFinder → embedding continuo
+            self.embedding = nn.Linear(3, d_model)
+        else:
+            # Dataset discreto → embedding token
+            # Embedding layer: [B, L] -> [B, L, H]
+            self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=0)
 
         # Stack S4D layers + normalizzazione + dropout
         self.s4d_layers = nn.ModuleList()

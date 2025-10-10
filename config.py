@@ -42,6 +42,19 @@ PRUNING_DEFAULT_CONFIG = {
             "wd": 0,
             "patience": 5
         },
+        "pathfinder":
+        {
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.004,
+            "batch_size": 64,
+            "epochs": 200,
+            "wd": 0.03,
+            "patience": 20
+        }
     },
     "s4":
     {
@@ -84,6 +97,19 @@ PRUNING_DEFAULT_CONFIG = {
             "wd": 0,
             "patience": 5
         },
+        "pathfinder":
+        {
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.004,
+            "batch_size": 100,
+            "epochs": 200,
+            "wd": 0,
+            "patience": 20
+        }
     },
     "num_workers": 4,
     "val_split": 0.2
