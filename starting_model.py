@@ -106,12 +106,12 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
-            vocab_size=model_test.dataset.vocab_size, 
+            vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else None,
             seq_len=model_test.dataset.input_shape[1], 
             batch_size=batch_size, 
             dataset_name=dataset_name
         )
-        model_info.torchinfo(output_dir="model_info")
+        model_info.torchinfo(output_dir="model_info", mode=pruned_model_index)
         print("Model info saved in model_info folder")
 
 # Main

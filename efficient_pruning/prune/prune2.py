@@ -19,9 +19,13 @@ def prune_random_channels(model, perc_channels):
             H = len(layer.active_idx)
 
         # Percentuale crescente di pruning layer-wise
-        #k = 2.0
-        #factor = (1 - math.exp(-k * (i + 1))) / (1 - math.exp(-k * n_layers))
-        factor = (i + 1) / n_layers
+
+        # Exponential increase
+        k = 2.0
+        factor = (1 - math.exp(-k * (i + 1))) / (1 - math.exp(-k * n_layers))
+
+        # Linear increase
+        # factor = (i + 1) / n_layers
         perc = perc_channels * factor
         n_pruned = int(H * perc)
 

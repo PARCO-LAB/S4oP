@@ -184,8 +184,10 @@ class ModelInfo:
         self.seq_len = seq_len
         self.batch_size = batch_size
 
-        # Input shape: batch di sequenze intere
-        self.input_shape = (batch_size, seq_len)
+        if vocab_size is not None:
+            self.input_shape = (batch_size, seq_len)
+        else:
+            self.input_shape = (batch_size, seq_len, 3)
 
         self.augment()
 
@@ -204,9 +206,12 @@ class ModelInfo:
         augment_names(self.model)
         self.model.childs = augment_childs(self.model)
 
-        input_sample = torch.randint(
-            0, self.vocab_size, self.input_shape, dtype=torch.long
-        ).to(utils.get_device())
+        if self.vocab_size is not None:
+            input_sample = torch.randint(
+                0, self.vocab_size, self.input_shape, dtype=torch.long
+            ).to(utils.get_device())
+        else:
+            input_sample = torch.randn(*self.input_shape).to(utils.get_device())
 
         augment_input_output(self.model, input_sample)
     
@@ -223,14 +228,17 @@ class ModelInfo:
     def torchinfo(self, output_dir, mode):
         info = torchinfo.summary( 
             self.model, 
-            input_size=(self.batch_size, self.seq_len), 
+            input_size=(self.batch_size, self.seq_len) if self.vocab_size is not None else (self.batch_size, self.seq_len, 3),
             col_names=("input_size", "output_size", "num_params", "mult_adds"), 
             verbose=0, 
-            dtypes=[torch.long])
+            dtypes=[torch.long] if self.vocab_size is not None else [torch.float],)
 
-        with open(os.path.join(output_dir, f"{self.model_name}_{self.dataset_name}_torchinfo_{mode}.txt"), "w") as text_file:
-            text_file.write(str(info))
-
+        if mode is not None:
+            with open(os.path.join(output_dir, f"{self.model_name}_{self.dataset_name}_torchinfo_{mode}.txt"), "w") as text_file:
+                text_file.write(str(info))
+        else:
+            with open(os.path.join(output_dir, f"{self.model_name}_{self.dataset_name}_torchinfo.txt"), "w") as text_file:
+                text_file.write(str(info))
 
     @torch.no_grad()
     def torchsummary(self, output_dir="."):

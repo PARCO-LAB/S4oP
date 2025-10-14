@@ -20,7 +20,7 @@ class LRAPathfinder(DatasetInterface):
 
         # Trasformazioni immagini
         self.transform = transforms.Compose([
-            transforms.Resize((128, 128)),
+            transforms.Resize((32, 32)),
             transforms.ToTensor(),
         ])
 

@@ -56,7 +56,7 @@ def profile_model(model_path):
     timings = []
 
     # Warm-up CUDA
-    """ with torch.no_grad():
+    with torch.no_grad():
         for i, (inputs, _) in enumerate(dataloader):
             if i >= batch_size:
                 break
@@ -65,7 +65,7 @@ def profile_model(model_path):
             t0 = time.time()
             _ = model_test.model_train.model(inputs)
             torch.cuda.synchronize() if device.type=='cuda' else None
-            t1 = time.time() """
+            t1 = time.time()
 
     with torch.no_grad():
         for i, (inputs, _) in enumerate(dataloader):

@@ -36,7 +36,7 @@ class ModelTest:
         num_classes = dataset.get_output_shape()[-1]
         model = NetFactory(
             model_name=model_name, 
-            vocab_size=dataset.vocab_size,
+            vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else None,
             d_model=d_model, 
             d_state=d_state,
             depth=depth,
