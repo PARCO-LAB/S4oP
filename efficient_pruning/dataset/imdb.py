@@ -33,6 +33,7 @@ class IMDB(DatasetInterface):
         X_train, y_train = tokenize_dataset(raw_train)
         X_test, y_test   = tokenize_dataset(raw_test)
         self.vocab_size = len(self.tokenizer)
+        print(f"Numero di sample per ciascuna classe: {torch.bincount(y_test)}")
 
         # Train/val split
         val_size = int(valsplit * len(X_train))

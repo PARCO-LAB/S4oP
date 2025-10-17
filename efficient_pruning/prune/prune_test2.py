@@ -18,17 +18,14 @@ def prune_random_channels(model, perc_channels):
         else:
             H = len(layer.active_idx)
 
-        # Percentuale crescente di pruning layer-wise
-
-        # Exponential increase
-        k = 2.0
-        factor = (1 - math.exp(-k * (i + 1))) / (1 - math.exp(-k * n_layers))
-
-        # Linear increase
-        # factor = (i + 1) / n_layers
-        perc = perc_channels * factor
-        n_pruned = int(H * perc)
-
+        # Calcola il numero di canali da prunare
+        if i == 0:
+            n_pruned = int(H * perc_channels)
+            n_active = H - n_pruned
+        else:
+            n_active = n_active // 2
+            n_pruned = H - n_active
+        
         # Selezione dei nuovi canali da prunare solo tra quelli attivi
         idx_to_remove = random.sample(layer.active_idx, n_pruned)
         layer.active_idx = [idx for idx in layer.active_idx if idx not in idx_to_remove]

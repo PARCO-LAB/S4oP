@@ -42,6 +42,7 @@ class LRAListOps(DatasetInterface):
 
         X_test  = [tokenize_sequence(seq) for seq in test_df.iloc[:,0].values]
         y_test  = torch.tensor(test_df.iloc[:,1].values, dtype=torch.long)
+        print(f"Numero di sample per ciascuna classe: {torch.bincount(y_test)}")
 
         # Padding
         max_len_train = max(len(x) for x in X_train)

@@ -158,15 +158,12 @@ class ModelTrain:
                 return indexed_path
             i += 1
 
-    """ def save(self, path):
-            self.model.zero_grad()
-            if "pruned" in path:
-                torch.save(self.model, path)
-            else:
-                torch.save(self.model.state_dict(), path)"""
-
-
     def save(self, path):
+            self.model.zero_grad()
+            torch.save(self.model.state_dict(), path)
+
+
+    """ def save(self, path):
         self.model.zero_grad()
         if "pruned" in path:
             saved_masks = {}
@@ -185,4 +182,4 @@ class ModelTrain:
                 path
             )
         else:
-            torch.save(self.model.state_dict(), path)
+            torch.save(self.model.state_dict(), path) """

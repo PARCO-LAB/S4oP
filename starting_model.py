@@ -5,7 +5,7 @@ import torch
 from config import *
 from efficient_pruning.model import ModelTrain, ModelTest, ModelInfo
 from efficient_pruning.model.utils import set_benchmark, set_seed, setup_optimizer, get_device
-from efficient_pruning.prune.prune1 import mask_hook
+from efficient_pruning.prune.prune_test1 import mask_hook
 
 set_seed(42)
 set_benchmark(False)

@@ -3,7 +3,7 @@ import os
 import torch
 import time
 
-from efficient_pruning.prune.prune2 import prune_random_channels
+from efficient_pruning.prune.prune_test2 import prune_random_channels
 from efficient_pruning.model import FineTuning, ModelTest
 from efficient_pruning.model.utils import get_device
 from efficient_pruning.model.utils import set_benchmark, set_seed

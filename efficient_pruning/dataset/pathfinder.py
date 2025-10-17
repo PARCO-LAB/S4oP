@@ -87,6 +87,7 @@ class LRAPathfinder(DatasetInterface):
 
         self.input_shape = (batch_size,) + tuple(X.shape[1:])  # [B, L, C]
         self.labels = sorted(list(set(labels)))
+        print(f"Il numero di sample per ciascuna classe: {torch.bincount(self.testset[:][1])}")
 
         print(f"LRAPathfinder: {len(self.trainset)} train, {len(self.valset)} val, {len(self.testset)} test")
         print(f"Input shape: {self.input_shape}, num_classes={len(self.labels)}")

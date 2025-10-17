@@ -5,7 +5,7 @@ PRUNING_CONFIG = {
         "finetune_epochs": 5,
         "lr": 1e-4,
         "weight_decay": 1e-5,
-        "perc_channels": 0.5,
+        "perc_channels": 0.3, # 0.5, ho messo 0.3 per i test espeneziali
     },
     "iterative2": 
     {
