@@ -23,7 +23,7 @@ def prune_random_channels(model, perc_channels):
             n_pruned = int(H * perc_channels)
             n_active = H - n_pruned
         else:
-            n_active = n_active // 2
+            n_active = max(n_active // 2, 1) # Riduce il numero di canali attivi per i layer successivi al primo a metà, minimo 1
             n_pruned = H - n_active
         
         # Selezione dei nuovi canali da prunare solo tra quelli attivi

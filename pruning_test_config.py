@@ -2,10 +2,10 @@ PRUNING_CONFIG = {
     "iterative1": 
     {
         "iterations": 3,
-        "finetune_epochs": 5,
+        "finetune_epochs": 20, # 5, ho messo 20 per i test con pathfinder
         "lr": 1e-4,
         "weight_decay": 1e-5,
-        "perc_channels": 0.3, # 0.5, ho messo 0.3 per i test espeneziali
+        "perc_channels": 0.3, # 0.5, ho messo 0.3 per i test esponenziali
     },
     "iterative2": 
     {
@@ -43,21 +43,5 @@ PRUNING_CONFIG = {
         "lr": 1e-4,
         "weight_decay": 1e-5,
         "perc_channels": 0.9,
-    },
-    ###############################################################################
-    "iterative_extreme": 
-    {
-        "iterations": 3,
-        "finetune_epochs": 5,
-        "lr": 1e-4,
-        "weight_decay": 1e-5,
-        "perc_channels": 0.75,
-    },
-    "one-shot_extreme": 
-    {
-        "finetune_epochs": 10,
-        "lr": 1e-4,
-        "weight_decay": 1e-5,
-        "perc_channels": 0.95,
     },
 }
