@@ -31,15 +31,15 @@ PRUNING_DEFAULT_CONFIG = {
         },
         "imdb":
         {
-            "depth": 2,
-            "features": 128,
-            "norm": "BN",
-            "pre-norm": False,
-            "dropout": 0.0,
+            "depth": 4,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.2,
             "lr": 0.001,
-            "batch_size": 50,
-            "epochs": 20,
-            "wd": 0,
+            "batch_size": 32,
+            "epochs": 30,
+            "wd": 1e-4,
             "patience": 5
         },
         "pathfinder":
@@ -87,14 +87,14 @@ PRUNING_DEFAULT_CONFIG = {
         "imdb":
         {
             "depth": 4,
-            "features": 128,
+            "features": 256,
             "norm": "LN",
-            "pre-norm": False,
-            "dropout": 0.0,
+            "pre-norm": True,
+            "dropout": 0.2,
             "lr": 0.001,
-            "batch_size": 40,
-            "epochs": 20,
-            "wd": 0,
+            "batch_size": 32,
+            "epochs": 30,
+            "wd": 1e-4,
             "patience": 5
         },
         "pathfinder":

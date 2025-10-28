@@ -73,7 +73,7 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         print("\nStarting testing...")
         model_test.run()
 
-        """ # Model Info
+        # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
             vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else None,
@@ -82,7 +82,7 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
             dataset_name=dataset_name
         )
         model_info.torchinfo(output_dir="model_info", mode=pruned_model_index)
-        print("\nModel info salvato nella cartella 'model_info'") """
+        print("\nModel info salvato nella cartella 'model_info'")
 
     # Se il modello esiste ed è stato specificato un modello prunato
     elif pruned_model_index is not None:
@@ -90,7 +90,7 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
     
     # Se il modello esiste, salto l'addestramento
     else: 
-        print("Skipping training because model path {} already exists".format(model_path))
+        print("\nSkipping training because model path {} already exists".format(model_path))
 
         # Testing
         model_test = ModelTest.from_pth(model_path=model_path, 

@@ -293,5 +293,9 @@ class ModelInfo:
             input_shape = self.input_shape
         else: 
             input_shape = search_module.input_shape
-        example_input = torch.randint(0, self.vocab_size, input_shape, dtype=torch.long).to(utils.get_device())
+            
+        if self.vocab_size is not None:
+            example_input = torch.randint(0, self.vocab_size, input_shape, dtype=torch.long).to(utils.get_device())
+        else:
+            example_input = torch.randn(input_shape).to(utils.get_device())
         return example_input

@@ -3,7 +3,6 @@ import torch.nn as nn
 from .layer_s4d import LayerS4D
 
 def dropout_fn(p):
-    """Dropout helper (come nella repo ufficiale)."""
     if p > 0.0:
         return nn.Dropout(p)
     return nn.Identity()

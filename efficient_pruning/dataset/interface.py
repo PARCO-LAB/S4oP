@@ -11,7 +11,6 @@ class DatasetInterface:
         self.valset = None
         self.testset = None
 
-
     @staticmethod
     def get_loader(dataset, batch_size, num_workers, shuffle, subset_perc):
         if dataset is None: 
