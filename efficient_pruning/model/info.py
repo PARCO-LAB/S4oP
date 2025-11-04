@@ -223,7 +223,6 @@ class ModelInfo:
         model_graph.render(
             os.path.join(output_dir, "{}_{}_torchviz".format(self.model_name, self.dataset_name)), format="png")
 
-
     @torch.no_grad()
     def torchinfo(self, output_dir, mode):
         info = torchinfo.summary( 

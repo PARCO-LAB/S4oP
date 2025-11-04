@@ -13,14 +13,14 @@ from config import *
 set_seed(42)
 set_benchmark(False)
 
-def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
+def prune_and_finetune(model_name, dataset_name, checkpoint_folder, perc_pruned):
     
     path = os.path.join(checkpoint_folder, f"{model_name}_{dataset_name}_pruned.pth")
     if os.path.exists(path):
         raise ValueError(f"Il file {path} esiste già. Scegliere un'altra cartella o un altro nome per il file.")
     
     config = PRUNING_DEFAULT_CONFIG
-    ptc= PRUNING_CONFIG[dataset_name]
+    ptc= PRUNING_CONFIG[model_name][dataset_name]
     model_test = ModelTest.from_pth(
         model_path=f"./checkpoints/{model_name}_{dataset_name}_best.pth",
         batch_size=config[model_name][dataset_name]["batch_size"],
@@ -41,21 +41,26 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
     n_layers = len(s4_layers)
     print(f"Trovati {n_layers} layer s4/s4d nel modello.")
 
+    # Numero di canali da prunare globalmente
+    H = s4_layers[0].h if s4_layers[0].__class__.__name__ == "LayerS4D" else s4_layers[0].d_model
+    tot_channels = H * n_layers
+    total_channels_to_prune = int(tot_channels * perc_pruned)
+    idx_to_remove = random.sample(range(tot_channels), total_channels_to_prune)
+    idx_to_remove_per_layer = [[] for _ in range(n_layers)]
+    for i in idx_to_remove:
+        layer_idx = i // H
+        channel_idx = i % H
+        idx_to_remove_per_layer[layer_idx].append(channel_idx)
+
     for i, layer in enumerate(s4_layers):
 
-        H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
-
-        # Calcola il numero di canali da prunare
-        n_pruned = int(H * 0.999)
-        n_active = H - n_pruned
-
         # Selezione dei nuovi canali da prunare solo tra quelli attivi
-        idx_to_remove = random.sample(range(H), n_pruned)
         if layer.__class__.__name__ == "LayerS4D":
-            layer.pruning_mask[idx_to_remove] = 0  
+            layer.pruning_mask[idx_to_remove_per_layer[i]] = 0
         else:
-            layer.layer.pruning_mask[idx_to_remove] = 0
+            layer.layer.pruning_mask[idx_to_remove_per_layer[i]] = 0
 
+        n_active = H - len(idx_to_remove_per_layer[i])
         print(f"[Layer {i}]: canali rimanenti {n_active}/{H}")
 
     print("=== FINE-TUNING ===")
@@ -80,7 +85,7 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
         batch_size=config[model_name][dataset_name]["batch_size"], 
         dataset_name=dataset_name
     )
-    if not os.path.exists(f"./model_info_ppruned/{model_name}_{dataset_name}_torchinfo_pruned.txt"):
+    if not os.path.exists(f"./model_info_pruned/{model_name}_{dataset_name}_torchinfo_pruned.txt"):
         model_info.torchinfo(output_dir="model_info_pruned", mode="pruned")
         print("\nModel info salvato nella cartella 'model_info_pruned'")
     else:
@@ -110,9 +115,24 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint_folder", "-c",
         dest="checkpoint_folder",
-        required=False, default=os.path.join(".", "checkpoints_pruned2"),
+        required=False, default=os.path.join(".", "checkpoints_pruned"),
         help="Cartella per salvare i checkpoint"
     )
     args = parser.parse_args()
 
-    prune_and_finetune(args.model_name, args.dataset_name, args.checkpoint_folder)
+    for model in ("s4d", "s4"):
+        for dataset in ("imdb", "listops", "pathfinder"):
+            if model == "s4" and dataset == "imdb":
+                perc = 0.579
+            elif model == "s4" and dataset == "listops":
+                perc = 0.704
+            elif model == "s4" and dataset == "pathfinder":
+                perc = 0.706
+            elif model == "s4d" and dataset == "imdb":
+                perc = 0.579
+            elif model == "s4d" and dataset == "listops":
+                perc = 0.776
+            elif model == "s4d" and dataset == "pathfinder":
+                perc = 0.706
+            print(f"\n      MODEL: {model} DATASET: {dataset} \n")
+            prune_and_finetune(model, dataset, args.checkpoint_folder, perc)

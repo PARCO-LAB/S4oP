@@ -1219,33 +1219,59 @@ class SSMKernelDPLR(SSMKernelDiag):
     """SSM kernel for diagonal + low rank (DPLR) state matrices, corresponding to the original S4 model."""
 
     @torch.no_grad()
-    def _setup_C(self, L):
+    def _setup_C(self, L, idx=None):
         """Construct C~ from C.
-
-        Two modes are supported: go directly to length L if self.l_kernel is 1, or length is doubled
+           If idx is provided, only update the H positions in idx.
         """
-
         if self.l_kernel.item() == 0:
             if self.verbose: log.info(f"S4: Initializing kernel to length {L}")
             double_length = False
-        elif L > self.l_kernel.item(): # 2*int(self.l_kernel) == L:
+        elif L > self.l_kernel.item():
             if self.verbose: log.info(f"S4: Doubling length from L = {self.l_kernel.item()} to {2*self.l_kernel.item()}")
             double_length = True
-            L = self.l_kernel.item() # Convenience for the math below
-        else: return
+            L = self.l_kernel.item()
+        else:
+            return
 
-        C = _r2c(self.C)
-        dA, _ = self._setup_state()
+        # Full complex view of C
+        C_full = _r2c(self.C)  # shape (C, H, N)  (C = channels)
+        # If idx provided, operate on the subset along H dimension
+        if idx is not None:
+            # slice the H axis (axis=1)
+            C = C_full[:, idx, :]   # (C, H_active, N)
+        else:
+            C = C_full  # (C, H, N)
+
+        # compute dA for all H, but we'll index it if idx is provided.
+        # NOTE: this currently computes _setup_state() on full params; can be optimized later.
+        dA, _ = self._setup_state()  # dA: (H, N, N?) or (H, M, N) per implementation
+        if idx is not None:
+            dA = dA[idx]  # (H_active, ...)
+
         dA_L = power(L, dA)
         # Multiply C by I - dA_L
         C_ = _conj(C)
-        prod = contract("h m n, c h n -> c h m", dA_L.transpose(-1, -2), C_)
-        if double_length: prod = -prod # Multiply by I + dA_L instead
+        prod = contract("h m n, c h n -> c h m", dA_L.transpose(-1, -2), C_)  # dims match subset
+        if double_length:
+            prod = -prod
         C_ = C_ - prod
-        C_ = C_[..., :self.N] # Take conjugate pairs again
-        self.C.copy_(_c2r(C_))
+        C_ = C_[..., :self.N]  # take conjugate pairs again
 
-        self.l_kernel = 2*self.l_kernel if double_length else self.l_kernel+L # Preserve type/device
+        # write back into underlying real buffer: only the selected H positions
+        if idx is not None:
+            # convert to real and copy into the corresponding slice
+            tmp = _c2r(C_)  # shape (..., H_active, N_real)
+            # target self.C has shape (..., H, N_real)
+            # we must copy into the H positions in idx
+            # convert idx to python list or tensor on same device
+            # Create a view and copy
+            # If self.C is (..., H, N_real), indexing on H dimension:
+            self.C[:, idx, :, :].copy_(tmp)
+        else:
+            self.C.copy_(_c2r(C_))
+
+        # update l_kernel preserving dtype/device
+        self.l_kernel = 2*self.l_kernel if double_length else self.l_kernel + L
 
     def _omega(self, L, dtype, device, cache=True):
         """Calculate (and cache) FFT nodes.
@@ -1269,8 +1295,7 @@ class SSMKernelDPLR(SSMKernelDiag):
             self.omega = omega
             self.z = z
         return omega, z
-
-
+    
     def register_params(self, A, B, C, inv_dt, P):
         """Process the initialization into form of trainable parameters.
 
@@ -1316,75 +1341,87 @@ class SSMKernelDPLR(SSMKernelDiag):
         # Track the current kernel length this is "attuned" to
         self.register_buffer('l_kernel', torch.tensor(0))
 
-    def _get_params(self, rate=1.0):
-        dt, A, B, C = super()._get_params(rate=rate)
+    def _get_params(self, rate=1.0, idx=None):
+        """
+        Return dt, A, B, C, P, Q possibly restricted to idx along H dimension.
+        If idx is None returns same as original.
+        """
+        dt, A, B, C = super()._get_params(rate=rate)  # original returns full H-sized tensors
+
         P = _r2c(self.P)  # (R S N)
+        # expand P to (R H N) as before
         P = repeat(P, 'r t n -> r (v t) n', v=self.repeat)  # (R H N)
-        Q = P.conj()
+        Q = P.conj()  # (R H N)
+
+        if idx is None:
+            return dt, A, B, C, P, Q
+
+        # idx is a 1D LongTensor of active H indices
+        # slice along H dimension for tensors that have H
+        dt = dt[idx]            # (H_active)
+        A = A[idx]              # (H_active, N)
+        # B has batch dim on -3, but typically shape (B?, H, N). We slice H axis
+        B = B[..., idx, :] if B.ndim >= 2 else B  # safe slicing; adapt if shapes differ
+        C = C[..., idx, :] if C.ndim >= 2 else C
+        P = P[..., idx, :] if P.ndim >= 2 else P
+        Q = Q[..., idx, :] if Q.ndim >= 2 else Q
 
         return dt, A, B, C, P, Q
 
-    def forward(self, state=None, rate=1.0, L=None):
-        """See Kernel.forward() for argument documentation."""
+    def forward(self, state=None, rate=1.0, L=None, idx=None):
+        """See Kernel.forward() for argument documentation.
+           New optional arg: idx -> LongTensor of H indices to compute
+        """
 
-        # Initialize C~ if necessary (done in forward pass so it's on the correct device)
+        # If we haven't done initial C setup, do it for the requested L.
         if self.l_kernel.item() == 0 and self.l_max is not None and self.l_max > 0:
-            self._setup_C(self.l_max)
+            # If idx specified, only setup C for those H indices; otherwise global
+            self._setup_C(self.l_max, idx=idx)
 
-        # Handle sampling rate logic
-        # The idea is that this kernel's length (in continuous units) is self.l_kernel, while we are asked to provide a kernel of length L at (relative) frequency rate
         if L is None:
-            L = round(self.l_kernel.item() / rate)
+            L = round(self.l_kernel.item() / rate) if self.l_kernel.item() > 0 else 0
 
-        # Increase the internal length if needed
         continuous_L = round(rate*L)
         while continuous_L > self.l_kernel.item():
-            self._setup_C(continuous_L)
+            # If idx specified, compute setup_C only for those indices
+            self._setup_C(continuous_L, idx=idx)
+
         discrete_L = round(self.l_kernel.item()/rate)
 
-        dt, A, B, C, P, Q = self._get_params(rate)
+        # Get parameters possibly restricted to idx
+        dt, A, B, C, P, Q = self._get_params(rate, idx=idx)
 
-        # Get FFT nodes of right length
+        # Get FFT nodes (unchanged)
         omega, z = self._omega(discrete_L, dtype=A.dtype, device=A.device, cache=(rate==1.0))
 
-        # Augment B
-        if state is not None:
-            # Have to "unbilinear" the state to put it into the same "type" as B
-            # Compute 1/dt * (I + dt/2 A) @ state
-
-            # Can do this without expanding (maybe minor speedup using conj symmetry in theory), but it's easier to read this way
-            s = _conj(state) if state.size(-1) == self.N else state # (B H N)
-            sA = (
-                s * _conj(A) # (B H N)
-                - contract('bhm, rhm, rhn -> bhn', s, _conj(Q), _conj(P))
-            )
-            s = s / dt + sA / 2
-            s = s[..., :self.N]
-
-            B = torch.cat([s, B], dim=-3)  # (B+1, H, N)
+        # If a state was provided, the code path that manipulates state expects full-H length shape.
+        # For idx support, the caller (FFTConv) should also call forward_state and step with consistent idx-handling.
+        if state is not None and idx is not None:
+            # slice incoming state along H dim (assume state shape (..., H, N) or similar)
+            state = state[..., idx, :]
 
         # Incorporate dt into A
-        A = A * dt  # (H N)
+        A = A * dt
 
-        # Stack B and p, C and q for convenient batching
-        B = torch.cat([B, P], dim=-3) # (B+1+R, H, N)
-        C = torch.cat([C, Q], dim=-3) # (C+R, H, N)
+        # Stack B and P etc. same as before
+        B = torch.cat([B, P], dim=-3)  # shapes remain consistent for sliced H
 
-        # Incorporate B and C batch dimensions
-        v = B.unsqueeze(-3) * C.unsqueeze(-4)  # (B+1+R, C+R, H, N)
-        v = v * dt  # Incorporate dt into B
+        C = torch.cat([C, Q], dim=-3)
 
-        # Dispatch which Cauchy kernel to use
+        v = B.unsqueeze(-3) * C.unsqueeze(-4)  # (B+1+R, C+R, H_active, N)
+        v = v * dt
+
+        # select cauchy implementation (same as before)
         if has_cuda_extension and z.dtype == torch.cfloat and z.device.type == 'cuda' and self.backend == 'cuda':
             cauchy_mult = cauchy_cuda
         elif has_pykeops and self.backend in ['cuda', 'keops']:
             cauchy_mult = cauchy_keops
         else:
             cauchy_mult = cauchy_naive
-        # Calculate resolvent at omega
+
         r = cauchy_mult(v, z, A)
 
-        # Low-rank Woodbury correction
+        # Low-rank Woodbury correction (unchanged logic) - operates on r which has H_active
         if self.rank == 1:
             k_f = r[:-1, :-1, :, :] - r[:-1, -1:, :, :] * r[-1:, :-1, :, :] / (1 + r[-1:, -1:, :, :])
         elif self.rank == 2:
@@ -1411,20 +1448,17 @@ class SSMKernelDPLR(SSMKernelDiag):
             r11 = rearrange(r11, "h n a b -> a b h n")
             k_f = r00 - torch.einsum("i j h n, j k h n, k l h n -> i l h n", r01, r11, r10)
 
-        # Final correction for the bilinear transform
         k_f = k_f * 2 / (1 + omega)
 
-        # Move from frequency to coefficients
-        k = torch.fft.irfft(k_f, n=discrete_L)  # (B+1, C, H, L)
-
-        # # Truncate to target length
+        # move back to time domain
+        k = torch.fft.irfft(k_f, n=discrete_L)  # (B+1, C, H_active, L)
         k = k[..., :L]
 
         if state is not None:
-            k_state = k[:-1, :, :, :]  # (B, C, H, L)
+            k_state = k[:-1, :, :, :]
         else:
             k_state = None
-        k_B = k[-1, :, :, :] # (C H L)
+        k_B = k[-1, :, :, :]  # (C, H_active, L)
 
         return k_B, k_state
 
@@ -1698,66 +1732,61 @@ class FFTConv(nn.Module):
         self.drop = dropout_fn(dropout) if dropout > 0.0 else nn.Identity()
         self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0.0 else nn.Identity()
 
-    def forward(self, x, state=None, rate=1.0, **kwargs): # absorbs return_output and transformer src mask
-        """
-        x: (B D L) if self.transposed else (B L D)
-        """
+        # Pruning mask for structured pruning of model dimension
+        self.register_buffer("pruning_mask", torch.ones(d_model, dtype=torch.bool))
 
-        # Always work with (B D L) dimension in this module
-        if not self.transposed: x = x.transpose(-1, -2)
+    def forward(self, x, state=None, rate=1.0, **kwargs):
+        if not self.transposed:
+            x = x.transpose(-1, -2)
         L = x.size(-1)
 
-        # Compute SS Kernel
-        l_kernel = L if self.L is None else min(L, round(self.L / rate))
-        k, k_state =  self.kernel(L=l_kernel, rate=rate, state=state) # (C H L) (B C H L)
+        # Applica pruning mask
+        if self.pruning_mask is not None:
+            idx_active = torch.nonzero(self.pruning_mask, as_tuple=True)[0]
+            idx_pruned = torch.nonzero(~self.pruning_mask.bool(), as_tuple=True)[0]
+        else:
+            idx_active = torch.arange(self.d_model, device=x.device)
+            idx_pruned = []
 
-        # Convolution
+        # Seleziona solo i canali attivi per l'SSM
+        x_active = x[:, idx_active, :]
+
+        # ---- Calcolo SSM solo sui canali attivi ----
+        l_kernel = L if self.L is None else min(L, round(self.L / rate))
+        k, k_state = self.kernel(L=l_kernel, rate=rate, state=state, idx=idx_active, **kwargs)
+
         if self.bidirectional:
             k0, k1 = rearrange(k, '(s c) h l -> s c h l', s=2)
             k = F.pad(k0, (0, L)) \
                     + F.pad(k1.flip(-1), (L, 0))
-            # The above has an off-by-one in the reverse direction
-            # This is a deliberate choice since the off-by-one should not affect any applications
-            # This can be amended which may be very slightly slower
-            # k = F.pad(k0, (0, L)) \
-            #         + F.pad(k1[..., 1:].flip(-1), (L+1, 0)) \
-            #         + F.pad(k1[..., :1], (0, l_kernel+L-1))
-
-        # Kernel dropout
+            
         k = self.drop_kernel(k)
-
-        # In principle, we could pad to l_kernel+L-1 instead of l_kernel+L, but we choose the latter for
-        # equational simplicity. Additionally, we have not experimented to compare the efficiency of the two.
-        k_f = torch.fft.rfft(k, n=l_kernel+L) # (C H L)
-        x_f = torch.fft.rfft(x, n=l_kernel+L) # (B H L)
+        k_f = torch.fft.rfft(k, n=l_kernel + L)
+        x_f = torch.fft.rfft(x_active, n=l_kernel + L)
         y_f = contract('bhl,chl->bchl', x_f, k_f)
-        y = torch.fft.irfft(y_f, n=l_kernel+L)[..., :L] # (B C H L)
+        y_active = torch.fft.irfft(y_f, n=l_kernel + L)[..., :L]
 
+        # D term (skip connection)
+        y_active = y_active + contract('bhl,ch->bchl', x_active, self.D[:, idx_active])
 
-        # Compute D term in state space equation - essentially a skip connection
-        y = y + contract('bhl,ch->bchl', x, self.D)
+        # Ricostruisci output finale
+        y = torch.zeros(x.shape[0], self.channels, self.d_model, L, device=x.device, dtype=x.dtype)
+        y[:, :, idx_active, :] = y_active
 
-        # Compute state update
-        if state is not None:
-            assert not self.bidirectional, "Bidirectional not supported with state forwarding"
-            y = y + k_state #
-            next_state = self.kernel.forward_state(x, state)
-        else:
-            next_state = None
+        # Copia diretta per i canali prunati
+        if len(idx_pruned) > 0:
+            y[:, 0, idx_pruned, :] = x[:, idx_pruned, :]
 
-
-        # Reshape to flatten channels
+        # Dropout e reshape finale
+        y = self.drop(y)
         if self.swap_channels:
             y = rearrange(y, 'b c h l -> b (h c) l')
         else:
             y = rearrange(y, 'b c h l -> b (c h) l')
-
-        y = self.drop(y)  # DropoutNd better with transposed=True
-
-        if not self.transposed: y = y.transpose(-1, -2)
+        if not self.transposed:
+            y = y.transpose(-1, -2)
         y = self.activation(y)
-
-        return y, next_state
+        return y, None
 
 
     def setup_step(self, **kwargs):
@@ -1886,8 +1915,6 @@ class S4Block(nn.Module):
                 activation=final_act,
                 activate=True,
             )
-
-
 
     def forward(self, x, lengths=None, **kwargs): # absorbs return_output and transformer src mask
         """

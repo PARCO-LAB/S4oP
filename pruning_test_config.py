@@ -1,5 +1,49 @@
 PRUNING_CONFIG = {
-    "iterative1": 
+    "s4":
+    {
+        "listops":
+        {
+            "finetune_epochs": 6,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        },
+        "pathfinder":
+        {
+            "finetune_epochs": 15,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        },
+        "imdb":
+        {
+            "finetune_epochs": 4,
+            "lr": 1e-5,
+            "weight_decay": 1e-5,
+        }
+    },
+    "s4d":
+    {
+        "listops":
+        {
+            "finetune_epochs": 5,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        },
+        "pathfinder":
+        {
+            "finetune_epochs": 15,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        },
+        "imdb":
+        {
+            "finetune_epochs": 4,
+            "lr": 1e-5,
+            "weight_decay": 1e-5,
+        }
+    }
+}
+
+""" "iterative1": 
     {
         "iterations": 3,
         "finetune_epochs": 10, # 5, ho messo 50 per i test con pathfinder
@@ -43,23 +87,4 @@ PRUNING_CONFIG = {
         "lr": 1e-4,
         "weight_decay": 1e-5,
         "perc_channels": 0.9,
-    },
-    "listops":
-    {
-        "finetune_epochs": 10,
-        "lr": 1e-4,
-        "weight_decay": 1e-5,
-    },
-    "pathfinder":
-    {
-        "finetune_epochs": 1,
-        "lr": 1e-4,
-        "weight_decay": 1e-5,
-    },
-    "imdb":
-    {
-        "finetune_epochs": 10,
-        "lr": 1e-5,
-        "weight_decay": 1e-5,
-    }
-}
+    }, """
