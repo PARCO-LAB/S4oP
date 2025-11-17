@@ -1,6 +1,6 @@
 import argparse
 import os
-import torch
+import numpy as np
 import random
 
 from efficient_pruning.prune.prune_test2 import prune_random_channels
@@ -13,7 +13,7 @@ from config import *
 set_seed(42)
 set_benchmark(False)
 
-def prune_and_finetune(model_name, dataset_name, checkpoint_folder, perc_pruned):
+def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
     
     path = os.path.join(checkpoint_folder, f"{model_name}_{dataset_name}_pruned.pth")
     if os.path.exists(path):
@@ -42,25 +42,63 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder, perc_pruned)
     print(f"Trovati {n_layers} layer s4/s4d nel modello.")
 
     # Numero di canali da prunare globalmente
-    H = s4_layers[0].h if s4_layers[0].__class__.__name__ == "LayerS4D" else s4_layers[0].d_model
+    """ H = s4_layers[0].h if s4_layers[0].__class__.__name__ == "LayerS4D" else s4_layers[0].d_model
     tot_channels = H * n_layers
-    total_channels_to_prune = int(tot_channels * perc_pruned)
+    total_channels_to_prune = int(tot_channels * 0.3)
     idx_to_remove = random.sample(range(tot_channels), total_channels_to_prune)
     idx_to_remove_per_layer = [[] for _ in range(n_layers)]
     for i in idx_to_remove:
         layer_idx = i // H
         channel_idx = i % H
-        idx_to_remove_per_layer[layer_idx].append(channel_idx)
+        idx_to_remove_per_layer[layer_idx].append(channel_idx) """
 
     for i, layer in enumerate(s4_layers):
 
+        # Numero di canali da prunare 
+        """ H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+        if i != 0:
+            perc = 0.5 / (sum([2**j for j in range(n_layers - 1)]))
+            n_pruned = max(1, int(perc * H * len(s4_layers) * (2**(i-1))))
+            n_active = H - n_pruned
+        else:
+            n_pruned = 0
+            n_active = H """
+        """  H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+        if i != 0:
+            perc = 0.5 / (sum([2**j for j in range(n_layers - 1)]))
+            n_pruned = max(1, int(perc * H * len(s4_layers) * ((2**(i-1)) + 1.5))) if i < n_layers -1 else max(1, int(perc * H * len(s4_layers) * 10))
+            n_active = H - n_pruned
+        else:
+            n_pruned = 0
+            n_active = H  """
+        """ H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+        if i == 0:
+            n_pruned = 0
+            n_active = H
+            n_active2 = n_active
+        else:
+            n_active = n_active // 2
+            n_active2 = max(1, n_active - 9)
+            n_pruned = H - n_active2 """
+        H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+        if i == 0:
+            n_pruned = 118
+            n_active = H - n_pruned
+        elif i == 1:
+            n_active = 8
+            n_pruned = H - n_active
+        else:
+            n_active = max(1, n_active // 2)
+            n_pruned = H - n_active
+        
+        idx_to_remove = random.sample(range(H), n_pruned)
+
         # Selezione dei nuovi canali da prunare solo tra quelli attivi
         if layer.__class__.__name__ == "LayerS4D":
-            layer.pruning_mask[idx_to_remove_per_layer[i]] = 0
+            layer.pruning_mask[idx_to_remove] = 0
         else:
-            layer.layer.pruning_mask[idx_to_remove_per_layer[i]] = 0
+            layer.layer.pruning_mask[idx_to_remove] = 0
 
-        n_active = H - len(idx_to_remove_per_layer[i])
         print(f"[Layer {i}]: canali rimanenti {n_active}/{H}")
 
     print("=== FINE-TUNING ===")
@@ -120,19 +158,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    for model in ("s4d", "s4"):
+    for model in ("s4", "s4d"):
         for dataset in ("imdb", "listops", "pathfinder"):
-            if model == "s4" and dataset == "imdb":
-                perc = 0.579
-            elif model == "s4" and dataset == "listops":
-                perc = 0.704
-            elif model == "s4" and dataset == "pathfinder":
-                perc = 0.706
-            elif model == "s4d" and dataset == "imdb":
-                perc = 0.579
-            elif model == "s4d" and dataset == "listops":
-                perc = 0.776
-            elif model == "s4d" and dataset == "pathfinder":
-                perc = 0.706
-            print(f"\n      MODEL: {model} DATASET: {dataset} \n")
-            prune_and_finetune(model, dataset, args.checkpoint_folder, perc)
+            print("\n")
+            print(f"     Modello: {model} Dataset: {dataset}")
+            print("\n")
+            prune_and_finetune(model, dataset, args.checkpoint_folder)

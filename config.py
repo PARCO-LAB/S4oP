@@ -1,6 +1,6 @@
 # Patience: parametro per l'early stopping
 
-PRUNING_DEFAULT_CONFIG = {
+""" PRUNING_DEFAULT_CONFIG = {
     "s4d":
     {
         "text":
@@ -108,6 +108,95 @@ PRUNING_DEFAULT_CONFIG = {
             "batch_size": 100,
             "epochs": 200,
             "wd": 0,
+            "patience": 20
+        }
+    },
+    "num_workers": 4,
+    "val_split": 0.2
+} """
+
+PRUNING_DEFAULT_CONFIG = {
+    "s4d":
+    {
+        "listops":
+        {
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.001,
+            "batch_size": 32,
+            "epochs": 40,
+            "wd": 0.01,
+            "patience": 5
+        },
+        "imdb":
+        {
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.001,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 5
+        },
+        "pathfinder":
+        {
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.001,
+            "batch_size": 64,
+            "epochs": 200,
+            "wd": 0.01,
+            "patience": 20
+        }
+    },
+    "s4":
+    {
+        "listops":
+        {
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.001,
+            "batch_size": 32 ,
+            "epochs": 50,
+            "wd": 0.01,
+            "patience": 5
+        },
+        "imdb":
+        {
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.001,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 5
+        },
+        "pathfinder":
+        {
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.001,
+            "batch_size": 64,
+            "epochs": 200,
+            "wd": 0.01,
             "patience": 20
         }
     },
