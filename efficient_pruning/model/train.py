@@ -15,6 +15,7 @@ class ModelTrain:
         self.dataset = dataset
         self.trainloader = self.dataset.get_trainloader()
         self.valloader = self.dataset.get_valloader()
+        self.eps = 1e-8
 
     
     @staticmethod
@@ -36,7 +37,7 @@ class ModelTrain:
         print(f"Num classes: {num_classes}, Input shape: {dataset.input_shape}, d_model: {d_model}")
         model = NetFactory(
             model_name=model_name, 
-            vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else None,
+            vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else dataset.input_shape[-1],
             d_model=d_model, 
             d_state=d_state,
             depth=depth,
@@ -54,6 +55,9 @@ class ModelTrain:
         acc_loss = 0.0
         correct = 0
         total = 0
+        precision_list_train = []
+        recall_list_train = []
+        f1_list_train = []
 
         for i, data in enumerate(self.trainloader):
             inputs, labels = data
@@ -67,21 +71,56 @@ class ModelTrain:
 
             batch_size = labels.size(0)
             acc_loss += loss.item() * batch_size
-            _, predicted = outputs.max(1)
-            total += batch_size
-            correct += (predicted == labels).sum().item()
+            if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
+                # Multi-label prediction (threshold = 0)
+                predicted = (outputs > 0).float()
+
+                # Accuracy multilabel: confronto elemento per elemento
+                correct += (predicted == labels).sum().item()
+                total += labels.numel()   # NOTA: numel, non batch_size
+                tp = torch.zeros(6, dtype=torch.float)
+                fp = torch.zeros(6, dtype=torch.float)
+                fn = torch.zeros(6, dtype=torch.float)
+                tn = torch.zeros(6, dtype=torch.float)
+                for c in range(6):
+                    tp[c] = ((predicted[:, c] == 1) & (labels[:, c] == 1)).sum().item()
+                    fp[c] = ((predicted[:, c] == 1) & (labels[:, c] == 0)).sum().item()
+                    fn[c] = ((predicted[:, c] == 0) & (labels[:, c] == 1)).sum().item()
+                    tn[c] = ((predicted[:, c] == 0) & (labels[:, c] == 0)).sum().item()
+                precision = tp.sum() / (tp.sum() + fp.sum() + self.eps)
+                recall = tp.sum() / (tp.sum() + fn.sum() + self.eps)  
+                f1 = 2 * (precision * recall) / (precision + recall + self.eps)
+                precision_list_train.append(precision.item())
+                recall_list_train.append(recall.item())
+                f1_list_train.append(f1.item())
+            else:
+                _, predicted = outputs.max(1)
+                total += batch_size
+                correct += (predicted == labels).sum().item()
+
 
             lr = optimizer.param_groups[0]["lr"]
             if i % 100 == 99:
                 running_loss = acc_loss / total
                 running_acc = 100.0 * correct / total
-                print("[Epoch {}, Iteration {}] lr: {:.3f} loss: {:.3f} train_accuracy: {:.3f}".format(
-                    epoch + 1, i + 1, lr, running_loss, running_acc))
+                if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
+                    precision = sum(precision_list_train) / len(precision_list_train)
+                    recall = sum(recall_list_train) / len(recall_list_train)
+                    f1 = sum(f1_list_train) / len(f1_list_train)
+                    print("[Epoch {}, Iteration {}] loss: {:.4f} | train_accuracy: {:.3f} | precision: {:.3f} | recall: {:.3f} | f1: {:.3f}]".format(epoch + 1, i + 1, running_loss, running_acc, precision * 100, recall * 100, f1 * 100))
+                else:
+                    print("[Epoch {}, Iteration {}] loss: {:.4f} | train_accuracy: {:.3f}]".format(epoch + 1, i + 1, running_loss, running_acc))
 
         epoch_loss = acc_loss / total
         epoch_acc = 100.0 * correct / total
         if i % 100 != 99:
-            print("[Epoch {}, Iteration {}] lr: {:.3f} loss: {:.3f} train_accuracy: {:.3f}".format(epoch + 1, i + 1, lr, epoch_loss, epoch_acc))
+            if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
+                precision = sum(precision_list_train) / len(precision_list_train)
+                recall = sum(recall_list_train) / len(recall_list_train)
+                f1 = sum(f1_list_train) / len(f1_list_train)
+                print("[Epoch {}, Iteration {}] loss: {:.4f} | train_accuracy: {:.3f} | precision: {:.3f} | recall: {:.3f} | f1: {:.3f}]".format(epoch + 1, i + 1, epoch_loss, epoch_acc, precision * 100, recall * 100, f1 * 100))
+            else:
+                print("[Epoch {}, Iteration {}] loss: {:.4f} | train_accuracy: {:.3f}]".format(epoch + 1, i + 1, epoch_loss, epoch_acc))
         return epoch_loss
     
     
@@ -90,16 +129,39 @@ class ModelTrain:
         correct = 0
         total = 0
         acc_loss = 0.0
+        precision_list_train = []
+        recall_list_train = []
+        f1_list_train = []
         with torch.no_grad():
             for data in self.valloader:
                 inputs, labels = data
                 inputs, labels = inputs.to(utils.get_device(), non_blocking=True), labels.to(utils.get_device(), non_blocking=True)
                 outputs = self.model(inputs)
-
-                _, predicted = outputs.max(1)
                 batch_size = labels.size(0)
-                total += batch_size
-                correct += (predicted == labels).sum().item()
+
+                if self.dataset_name == "ecg":
+                    predicted = (outputs > 0).float()
+                    correct += (predicted == labels).sum().item()
+                    total += labels.numel()
+                    tp = torch.zeros(6, dtype=torch.float)
+                    fp = torch.zeros(6, dtype=torch.float)
+                    fn = torch.zeros(6, dtype=torch.float)
+                    tn = torch.zeros(6, dtype=torch.float)
+                    for c in range(6):
+                        tp[c] = ((predicted[:, c] == 1) & (labels[:, c] == 1)).sum().item()
+                        fp[c] = ((predicted[:, c] == 1) & (labels[:, c] == 0)).sum().item()
+                        fn[c] = ((predicted[:, c] == 0) & (labels[:, c] == 1)).sum().item()
+                        tn[c] = ((predicted[:, c] == 0) & (labels[:, c] == 0)).sum().item()
+                    precision = tp.sum() / (tp.sum() + fp.sum() + self.eps)
+                    recall = tp.sum() / (tp.sum() + fn.sum() + self.eps)  
+                    f1 = 2 * (precision * recall) / (precision + recall + self.eps)
+                    precision_list_train.append(precision.item())
+                    recall_list_train.append(recall.item())
+                    f1_list_train.append(f1.item())
+                else:
+                    _, predicted = outputs.max(1)
+                    total += batch_size
+                    correct += (predicted == labels).sum().item()
 
                 if loss_criterion is not None:
                     loss = loss_criterion(outputs, labels)
@@ -108,15 +170,27 @@ class ModelTrain:
         val_accuracy = 100.0 * correct / total
         if loss_criterion is not None:
             val_loss = acc_loss / total
-            return val_accuracy, val_loss
-        return val_accuracy
-    
+            if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
+                precision = sum(precision_list_train) / len(precision_list_train)
+                recall = sum(recall_list_train) / len(recall_list_train)
+                f1 = sum(f1_list_train) / len(f1_list_train)
+                #print(f"[Validation] val_loss: {val_loss:.4f} | val_accuracy: {val_accuracy:.3f} | precision: {precision:.3f} | recall: {recall:.3f} | f1: {f1:.3f}]")
+                return val_accuracy, val_loss, f1
+            else:
+                #print(f"[Validation] val_loss: {val_loss:.4f} | val_accuracy: {val_accuracy:.3f}]")
+                return val_accuracy, val_loss
+        if self.dataset_name == "ecg":
+            f1 = sum(f1_list_train) / len(f1_list_train)
+            return val_accuracy, f1
+        else:
+            return val_accuracy
 
     def run(self, optimizer, scheduler, loss_criterion, epochs, checkpoints_folder=os.path.join(".", "checkpoints")):
         best_val_accuracy = 0.0
+        best_f1_score = 0.0
 
         # Determina il nome base del file per questa run
-        if checkpoints_folder == "./checkpoints_pruned1" or checkpoints_folder == "./checkpoints_pruned2":
+        if checkpoints_folder == "./checkpoints_pruned":
             base_name = f"{self.model_name}_{self.dataset_name}_pruned"
         else:
             base_name = f"{self.model_name}_{self.dataset_name}_best"
@@ -126,22 +200,31 @@ class ModelTrain:
 
         for epoch in range(int(epochs)):
             epoch_loss = self.train_step(epoch, optimizer, loss_criterion)
-            val_accuracy, val_loss = self.val_step(loss_criterion)
-            print(f"[Epoch {epoch+1} Summary] loss: {epoch_loss:.3f} val_loss {val_loss:.3f} val_accuracy: {val_accuracy:.3f}")
+            if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
+                val_accuracy, val_loss, val_f1 = self.val_step(loss_criterion)
+                print(f"[Epoch {epoch+1} Summary] loss: {epoch_loss:.3f} | val_loss {val_loss:.3f} | val_accuracy: {val_accuracy:.3f} | val_f1: {val_f1 * 100:.3f}]")
+            else:
+                val_accuracy, val_loss = self.val_step(loss_criterion)
+                print(f"[Epoch {epoch+1} Summary] loss: {epoch_loss:.3f} | val_loss {val_loss:.3f} | val_accuracy: {val_accuracy:.3f}]")
 
             if scheduler is not None:
                 scheduler.step()
 
             # Salvataggio best: sempre nello stesso file di questa run
-            if val_accuracy > best_val_accuracy:
-                best_val_accuracy = val_accuracy
-                self.save(model_path)
+            if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
+                if val_f1 > best_f1_score:
+                    best_f1_score = val_f1
+                    self.save(model_path)
+            else:
+                if val_accuracy > best_val_accuracy:
+                    best_val_accuracy = val_accuracy
+                    self.save(model_path)
 
             # Salvataggi periodici opzionali ogni 100 epoche
-            if (epoch + 1) % 100 == 0:
+            """ if (epoch + 1) % 100 == 0:
                 periodic_name = f"{self.model_name}_{self.dataset_name}_epoch{epoch+1}.pth"
                 periodic_path = os.path.join(checkpoints_folder, periodic_name)
-                self.save(periodic_path)
+                self.save(periodic_path) """
 
 
     def _generate_run_model_path(self, base_name, checkpoints_folder):

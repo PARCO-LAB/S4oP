@@ -17,7 +17,7 @@ class FineTuning:
         self.checkpoint_folder = checkpoint_folder
 
     def run(self): 
-        criterion = torch.nn.CrossEntropyLoss()
+        criterion = torch.nn.CrossEntropyLoss() if self.model_train.dataset.name != "ecg" else torch.nn.BCEWithLogitsLoss()
 
         optimizer, scheduler = setup_optimizer(
             model=self.model_train.model,

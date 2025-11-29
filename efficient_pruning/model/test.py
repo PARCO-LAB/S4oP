@@ -36,7 +36,7 @@ class ModelTest:
         num_classes = dataset.get_output_shape()[-1]
         model = NetFactory(
             model_name=model_name, 
-            vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else None,
+            vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else dataset.input_shape[-1],
             d_model=d_model, 
             d_state=d_state,
             depth=depth,
@@ -55,6 +55,10 @@ class ModelTest:
 
     def run(self):
         self.model_train.valloader = self.model_train.dataset.get_testloader()
-        accuracy = self.test_step()
-        print("[Test] test_accuracy: {:.3f}".format(accuracy))
+        if self.dataset_name == "ecg":
+            accuracy, f1 = self.test_step()
+            print("[Test] test_accuracy: {:.3f}, test_f1: {:.3f}".format(accuracy, f1 * 100))
+        else:
+            accuracy = self.test_step()
+            print("[Test] test_accuracy: {:.3f}".format(accuracy))
         return accuracy

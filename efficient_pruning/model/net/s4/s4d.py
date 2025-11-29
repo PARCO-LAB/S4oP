@@ -23,9 +23,9 @@ class S4D(nn.Module):
 
         self.pre_norm = pre_norm
         
-        if vocab_size is None:
+        if vocab_size <= 12:
             # Dataset PathFinder → embedding continuo
-            self.embedding = nn.Linear(3, d_model)
+            self.embedding = nn.Linear(vocab_size, d_model)
         else:
             # Dataset discreto → embedding token
             # Embedding layer: [B, L] -> [B, L, H]

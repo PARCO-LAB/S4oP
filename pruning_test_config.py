@@ -3,6 +3,63 @@ PRUNING_CONFIG = {
     {
         "listops":
         {
+            "finetune_epochs": 3,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        },
+        "pathfinder":
+        {
+            "finetune_epochs": 12,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        },
+        "imdb":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-5,
+            "weight_decay": 1e-5,
+        },
+        "ecg":
+        {
+            "finetune_epochs": 25,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        }
+    },
+    "s4d":
+    {
+        "listops":
+        {
+            "finetune_epochs": 3,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        },
+        "pathfinder":
+        {
+            "finetune_epochs": 12,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        },
+        "imdb":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-5,
+            "weight_decay": 1e-5,
+        },
+        "ecg":
+        {
+            "finetune_epochs": 25,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+        }
+    }
+}
+
+""" PRUNING_CONFIG = {
+    "s4":
+    {
+        "listops":
+        {
             "finetune_epochs": 6,
             "lr": 1e-4,
             "weight_decay": 1e-5,
@@ -41,7 +98,7 @@ PRUNING_CONFIG = {
             "weight_decay": 1e-5,
         }
     }
-}
+} """
 
 """ "iterative1": 
     {

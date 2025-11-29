@@ -46,7 +46,7 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         )
         print(f"\nModello: {model_name}, Dataset: {dataset_name}")
         print(model_train.model)
-        criterion = torch.nn.CrossEntropyLoss()
+        criterion = torch.nn.CrossEntropyLoss() if dataset_name in ["imdb", "listops", "pathfinder"] else torch.nn.BCEWithLogitsLoss()
         optimizer, scheduler = setup_optimizer(
             model_train.model,
             lr=config[f"{model_name}"][f"{dataset_name}"]["lr"],
@@ -76,7 +76,7 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
-            vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else None,
+            vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
             seq_len=model_test.dataset.input_shape[1], 
             batch_size=batch_size, 
             dataset_name=dataset_name
@@ -110,7 +110,7 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
-            vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else None,
+            vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
             seq_len=model_test.dataset.input_shape[1], 
             batch_size=batch_size, 
             dataset_name=dataset_name

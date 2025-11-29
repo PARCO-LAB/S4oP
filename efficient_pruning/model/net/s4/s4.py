@@ -3,7 +3,6 @@ import torch.nn as nn
 from .layer_s4 import S4Block   
 
 def dropout_fn(p):
-    """Dropout helper (come nella repo ufficiale)."""
     if p > 0.0:
         return nn.Dropout(p)
     return nn.Identity()
@@ -19,15 +18,14 @@ class S4(nn.Module):
         norm,       # "LN" (LayerNorm) oppure "BN" (BatchNorm)
         pre_norm,   # se normalizzare prima o dopo il blocco
         d_state=64, # stato interno di S4D
-        
     ):
         super().__init__()
 
         self.pre_norm = pre_norm
 
-        if vocab_size is None:
+        if vocab_size <= 12:
             # Dataset PathFinder → embedding continuo
-            self.embedding = nn.Linear(3, d_model)
+            self.embedding = nn.Linear(vocab_size, d_model)
         else:
             # Dataset discreto → embedding token
             # Embedding layer: [B, L] -> [B, L, H]

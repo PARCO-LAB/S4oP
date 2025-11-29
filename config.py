@@ -1,18 +1,18 @@
 # Patience: parametro per l'early stopping
 
-""" PRUNING_DEFAULT_CONFIG = {
+PRUNING_DEFAULT_CONFIG = {
     "s4d":
     {
-        "text":
+        "ecg":
         {
             "depth": 4,
-            "features": 64,
-            "norm": "BN",
-            "pre-norm": True,
-            "dropout": 0.0,
+            "features": 128,
+            "norm": "LN",
+            "pre-norm": False,
+            "dropout": 0.2,
             "lr": 0.001,
-            "batch_size": 50,
-            "epochs": 20,
+            "batch_size": 32,
+            "epochs": 200,
             "wd": 0,
             "patience": 5
         },
@@ -58,16 +58,16 @@
     },
     "s4":
     {
-        "text":
+        "ecg":
         {
             "depth": 4,
-            "features": 64,
-            "norm": "BN",
-            "pre-norm": True,
-            "dropout": 0.0,
+            "features": 128,
+            "norm": "LN",
+            "pre-norm": False,
+            "dropout": 0.2,
             "lr": 0.001,
-            "batch_size": 50,
-            "epochs": 20,
+            "batch_size": 32,
+            "epochs": 200,
             "wd": 0,
             "patience": 5
         },
@@ -113,9 +113,9 @@
     },
     "num_workers": 4,
     "val_split": 0.2
-} """
+}
 
-PRUNING_DEFAULT_CONFIG = {
+""" PRUNING_DEFAULT_CONFIG = {
     "s4d":
     {
         "listops":
@@ -202,4 +202,4 @@ PRUNING_DEFAULT_CONFIG = {
     },
     "num_workers": 4,
     "val_split": 0.2
-}
+} """

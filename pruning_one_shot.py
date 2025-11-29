@@ -1,11 +1,8 @@
 import argparse
 import os
-import numpy as np
 import random
 
-from efficient_pruning.prune.prune_test2 import prune_random_channels
 from efficient_pruning.model import FineTuning, ModelTest, ModelInfo, ModelProfile
-from efficient_pruning.model.utils import get_device
 from efficient_pruning.model.utils import set_benchmark, set_seed
 from pruning_test_config import *
 from config import *
@@ -63,14 +60,14 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
         else:
             n_pruned = 0
             n_active = H """
-        """  H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+        """ H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
         if i != 0:
             perc = 0.5 / (sum([2**j for j in range(n_layers - 1)]))
             n_pruned = max(1, int(perc * H * len(s4_layers) * ((2**(i-1)) + 1.5))) if i < n_layers -1 else max(1, int(perc * H * len(s4_layers) * 10))
             n_active = H - n_pruned
         else:
             n_pruned = 0
-            n_active = H  """
+            n_active = H """ 
         """ H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
         if i == 0:
             n_pruned = 0
@@ -82,13 +79,16 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
             n_pruned = H - n_active2 """
         H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
         if i == 0:
-            n_pruned = 118
-            n_active = H - n_pruned
-        elif i == 1:
-            n_active = 8
+            n_active = 32
             n_pruned = H - n_active
-        else:
-            n_active = max(1, n_active // 2)
+        elif i == 1:
+            n_active = 12
+            n_pruned = H - n_active
+        elif i == 2:
+            n_active = 6
+            n_pruned = H - n_active
+        elif i == 3:
+            n_active = 2
             n_pruned = H - n_active
         
         idx_to_remove = random.sample(range(H), n_pruned)
@@ -118,7 +118,7 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
     # Model Info
     model_info = ModelInfo(
         model=model_test.model, 
-        vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else None,
+        vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
         seq_len=model_test.dataset.input_shape[1], 
         batch_size=config[model_name][dataset_name]["batch_size"], 
         dataset_name=dataset_name
@@ -158,9 +158,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    for model in ("s4", "s4d"):
-        for dataset in ("imdb", "listops", "pathfinder"):
-            print("\n")
-            print(f"     Modello: {model} Dataset: {dataset}")
-            print("\n")
-            prune_and_finetune(model, dataset, args.checkpoint_folder)
+    prune_and_finetune(args.model_name, args.dataset_name, args.checkpoint_folder)

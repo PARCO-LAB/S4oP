@@ -184,10 +184,10 @@ class ModelInfo:
         self.seq_len = seq_len
         self.batch_size = batch_size
 
-        if vocab_size is not None:
+        if vocab_size > 12:
             self.input_shape = (batch_size, seq_len)
         else:
-            self.input_shape = (batch_size, seq_len, 3)
+            self.input_shape = (batch_size, seq_len, vocab_size)
 
         self.augment()
 
@@ -206,7 +206,7 @@ class ModelInfo:
         augment_names(self.model)
         self.model.childs = augment_childs(self.model)
 
-        if self.vocab_size is not None:
+        if self.vocab_size > 12:
             input_sample = torch.randint(
                 0, self.vocab_size, self.input_shape, dtype=torch.long
             ).to(utils.get_device())
@@ -227,10 +227,10 @@ class ModelInfo:
     def torchinfo(self, output_dir, mode):
         info = torchinfo.summary( 
             self.model, 
-            input_size=(self.batch_size, self.seq_len) if self.vocab_size is not None else (self.batch_size, self.seq_len, 3),
+            input_size=(self.batch_size, self.seq_len) if self.vocab_size > 12 else (self.batch_size, self.seq_len, self.vocab_size),
             col_names=("input_size", "output_size", "num_params", "mult_adds"), 
             verbose=0, 
-            dtypes=[torch.long] if self.vocab_size is not None else [torch.float],)
+            dtypes=[torch.long] if self.vocab_size > 12 else [torch.float],)
 
         if mode is not None:
             with open(os.path.join(output_dir, f"{self.model_name}_{self.dataset_name}_torchinfo_{mode}.txt"), "w") as text_file:
@@ -293,7 +293,7 @@ class ModelInfo:
         else: 
             input_shape = search_module.input_shape
             
-        if self.vocab_size is not None:
+        if self.vocab_size > 12:
             example_input = torch.randint(0, self.vocab_size, input_shape, dtype=torch.long).to(utils.get_device())
         else:
             example_input = torch.randn(input_shape).to(utils.get_device())
