@@ -3,19 +3,19 @@ PRUNING_CONFIG = {
     {
         "listops":
         {
-            "finetune_epochs": 3,
+            "finetune_epochs": 6,
             "lr": 1e-4,
             "weight_decay": 1e-5,
         },
         "pathfinder":
         {
-            "finetune_epochs": 12,
+            "finetune_epochs": 25,
             "lr": 1e-4,
             "weight_decay": 1e-5,
         },
         "imdb":
         {
-            "finetune_epochs": 2,
+            "finetune_epochs": 4,
             "lr": 1e-5,
             "weight_decay": 1e-5,
         },
@@ -30,19 +30,19 @@ PRUNING_CONFIG = {
     {
         "listops":
         {
-            "finetune_epochs": 3,
+            "finetune_epochs": 5,
             "lr": 1e-4,
             "weight_decay": 1e-5,
         },
         "pathfinder":
         {
-            "finetune_epochs": 12,
+            "finetune_epochs": 25,
             "lr": 1e-4,
             "weight_decay": 1e-5,
         },
         "imdb":
         {
-            "finetune_epochs": 2,
+            "finetune_epochs": 4,
             "lr": 1e-5,
             "weight_decay": 1e-5,
         },

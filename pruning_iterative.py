@@ -1,6 +1,9 @@
 import argparse
 import os
 import random
+import torch
+if torch.cuda.is_available() and not torch.cuda.is_initialized():
+    torch.cuda.current_device()
 
 from efficient_pruning.model import FineTuning, ModelTest, ModelInfo, ModelProfile
 from efficient_pruning.model.utils import set_benchmark, set_seed

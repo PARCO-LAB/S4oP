@@ -1,6 +1,8 @@
 import os
 import argparse
 import torch
+if torch.cuda.is_available() and not torch.cuda.is_initialized():
+    torch.cuda.current_device()
 
 from config import *
 from efficient_pruning.model import ModelTrain, ModelTest, ModelInfo, ModelProfile

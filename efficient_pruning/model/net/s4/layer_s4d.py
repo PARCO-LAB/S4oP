@@ -97,7 +97,6 @@ class LayerS4D(nn.Module):
         )
 
     def set_pruning_mask(self, mask):
-        """mask: bool tensor (1=active, 0=pruned) or list of indices to keep."""
         if isinstance(mask, torch.Tensor) and mask.dtype == torch.bool:
             if mask.numel() != self.h:
                 raise ValueError("mask length must equal d_model")
