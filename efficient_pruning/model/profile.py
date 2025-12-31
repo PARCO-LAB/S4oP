@@ -4,7 +4,7 @@ import torch.multiprocessing as multiprocessing
 from multiprocessing import queues
 import pandas as pd
 
-from ..perf import ModelTime
+from ..perf import ModelTime, MemoryProfile
 from .utils import set_benchmark, clean_memory, get_device, set_seed
 
 
@@ -12,6 +12,7 @@ class ModelProfile:
     def __init__(self, iterations=100):
         self.iterations = iterations
         self.model_time = ModelTime(self.iterations)
+        self.memory_profile = MemoryProfile()
         self.tests = {}
 
     def get_state(self):
@@ -29,6 +30,7 @@ class ModelProfile:
 
     def add(self, name):
         self.model_time.add(name)
+        self.memory_profile.add(name)
 
     def add_test(self, name, data):
         self.tests[name] = data
@@ -36,6 +38,7 @@ class ModelProfile:
     def run(self, name, model, get_example_input, iterations=None):
         model.eval()
         self.model_time.run(name, model, get_example_input, iterations)
+        self.memory_profile.run(name, model, get_example_input)
 
     def _info_test(self, name=None):
         print("============ ModelTest ============")
@@ -50,6 +53,7 @@ class ModelProfile:
 
     def info(self, name=None):
         self.model_time.info(name)
+        self.memory_profile.info(name)
         self._info_test(name)
 
     def _dump_test(self, filename):
@@ -84,10 +88,12 @@ class ModelProfile:
     def dataframe(self):
         df_time = self.model_time.dataframe()
         df_tests = self._dataframe_test()
+        df_memory = self.memory_profile.dataframe()
 
         return pd.concat([
             df_time,
             df_tests,
+            df_memory,
         ], axis=0).sort_values(by=["Test", "Section", "Metric"]).reset_index(drop=True)
     
 class ModelProfileSelection(ModelProfile):

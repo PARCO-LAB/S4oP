@@ -58,7 +58,9 @@ class ModelTest:
         if self.dataset_name == "ecg":
             accuracy, f1 = self.test_step()
             print("[Test] test_accuracy: {:.3f}, test_f1: {:.3f}".format(accuracy, f1 * 100))
+            return f1
         else:
             accuracy = self.test_step()
             print("[Test] test_accuracy: {:.3f}".format(accuracy))
-        return accuracy
+            return accuracy
+        

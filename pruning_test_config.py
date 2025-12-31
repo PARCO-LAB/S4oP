@@ -9,7 +9,7 @@ PRUNING_CONFIG = {
         },
         "pathfinder":
         {
-            "finetune_epochs": 25,
+            "finetune_epochs": 20,
             "lr": 1e-4,
             "weight_decay": 1e-5,
         },
@@ -21,7 +21,7 @@ PRUNING_CONFIG = {
         },
         "ecg":
         {
-            "finetune_epochs": 25,
+            "finetune_epochs": 20,
             "lr": 1e-4,
             "weight_decay": 1e-5,
         }
@@ -36,7 +36,7 @@ PRUNING_CONFIG = {
         },
         "pathfinder":
         {
-            "finetune_epochs": 25,
+            "finetune_epochs": 20,
             "lr": 1e-4,
             "weight_decay": 1e-5,
         },
@@ -48,7 +48,7 @@ PRUNING_CONFIG = {
         },
         "ecg":
         {
-            "finetune_epochs": 25,
+            "finetune_epochs": 20,
             "lr": 1e-4,
             "weight_decay": 1e-5,
         }

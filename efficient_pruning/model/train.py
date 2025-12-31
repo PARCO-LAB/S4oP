@@ -211,14 +211,14 @@ class ModelTrain:
                 scheduler.step()
 
             # Salvataggio best: sempre nello stesso file di questa run
-            if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
+            """ if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
                 if val_f1 > best_f1_score:
                     best_f1_score = val_f1
                     self.save(model_path)
             else:
                 if val_accuracy > best_val_accuracy:
                     best_val_accuracy = val_accuracy
-                    self.save(model_path)
+                    self.save(model_path) """
 
             # Salvataggi periodici opzionali ogni 100 epoche
             """ if (epoch + 1) % 100 == 0:
