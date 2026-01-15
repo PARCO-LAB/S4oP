@@ -1,10 +1,7 @@
 import os
 import torch
-import torch_pruning as tp
-import torch.nn.functional as F
-
 from .net import NetFactory
-from ..dataset import DatasetFactory, DatasetInterface
+from ..dataset import DatasetFactory
 from . import utils
 
 class ModelTrain: 
@@ -37,6 +34,7 @@ class ModelTrain:
         print(f"Num classes: {num_classes}, Input shape: {dataset.input_shape}, d_model: {d_model}")
         model = NetFactory(
             model_name=model_name, 
+            dataset_name=dataset_name,
             vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else dataset.input_shape[-1],
             d_model=d_model, 
             d_state=d_state,
@@ -192,11 +190,15 @@ class ModelTrain:
         # Determina il nome base del file per questa run
         if checkpoints_folder == "./checkpoints_pruned":
             base_name = f"{self.model_name}_{self.dataset_name}_pruned"
-        else:
+            model_path = os.path.join(checkpoints_folder, f"{base_name}.pth")
+        elif checkpoints_folder == "./checkpoints":
             base_name = f"{self.model_name}_{self.dataset_name}_best"
+            model_path = os.path.join(checkpoints_folder, f"{base_name}.pth")
+        else:
+            model_path = f"{checkpoints_folder}.pth"
 
-        # Genera un nome univoco per questa run (se esiste già, aggiunge indice)
-        model_path = self._generate_run_model_path(base_name, checkpoints_folder)
+        # Genera un nome univoco per questa run (se esiste già, aggiunge indice) -> Serve per quando si faceva il pruning iterativo e si creavano più run di fine-tuning
+        # model_path = self._generate_run_model_path(base_name, checkpoints_folder)
 
         for epoch in range(int(epochs)):
             epoch_loss = self.train_step(epoch, optimizer, loss_criterion)
@@ -211,21 +213,14 @@ class ModelTrain:
                 scheduler.step()
 
             # Salvataggio best: sempre nello stesso file di questa run
-            """ if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
+            if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
                 if val_f1 > best_f1_score:
                     best_f1_score = val_f1
                     self.save(model_path)
             else:
                 if val_accuracy > best_val_accuracy:
                     best_val_accuracy = val_accuracy
-                    self.save(model_path) """
-
-            # Salvataggi periodici opzionali ogni 100 epoche
-            """ if (epoch + 1) % 100 == 0:
-                periodic_name = f"{self.model_name}_{self.dataset_name}_epoch{epoch+1}.pth"
-                periodic_path = os.path.join(checkpoints_folder, periodic_name)
-                self.save(periodic_path) """
-
+                    self.save(model_path)
 
     def _generate_run_model_path(self, base_name, checkpoints_folder):
         os.makedirs(checkpoints_folder, exist_ok=True)
@@ -242,27 +237,4 @@ class ModelTrain:
             i += 1
 
     def save(self, path):
-            self.model.zero_grad()
-            torch.save(self.model.state_dict(), path)
-
-
-    """ def save(self, path):
-        self.model.zero_grad()
-        if "pruned" in path:
-            saved_masks = {}
-
-            # Salva solo le mask registrate nei layer
-            for name, layer in self.model.named_modules():
-                if hasattr(layer, "mask"):
-                    saved_masks[name] = layer.mask
-
-            # Salva sia i pesi che le mask
-            torch.save(
-                {
-                    "state_dict": self.model.state_dict(),
-                    "masks": saved_masks,
-                },
-                path
-            )
-        else:
-            torch.save(self.model.state_dict(), path) """
+        torch.save(self.model.state_dict(), path) 

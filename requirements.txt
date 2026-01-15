@@ -5,3 +5,4 @@ torchviz
 einops
 scikit-learn
 openpyxl
+h5py

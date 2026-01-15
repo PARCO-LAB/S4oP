@@ -35,7 +35,8 @@ class ModelTest:
         dataset = DatasetFactory(dataset_name=dataset_name, batch_size=batch_size, valsplit=valsplit, num_workers=num_workers).get_dataset()
         num_classes = dataset.get_output_shape()[-1]
         model = NetFactory(
-            model_name=model_name, 
+            model_name=model_name,
+            dataset_name=dataset_name,
             vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else dataset.input_shape[-1],
             d_model=d_model, 
             d_state=d_state,
@@ -45,7 +46,7 @@ class ModelTest:
             norm=norm,
             pre_norm=pre_norm,
         ).get_net()
-        model.load_state_dict(torch.load(model_path), strict=False)
+        model.load_state_dict(torch.load(model_path), strict=True)
         model.name = model_name
 
         return ModelTest(model, dataset)

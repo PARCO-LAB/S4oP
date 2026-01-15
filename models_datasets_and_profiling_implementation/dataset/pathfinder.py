@@ -74,7 +74,7 @@ class LRAPathfinder(DatasetInterface):
         if len(img_tensors) == 0:
             raise RuntimeError("Nessuna immagine trovata! Controlla la struttura delle cartelle e i nomi dei file.")
 
-        # Tensori e split
+        # Split
         X = torch.stack(img_tensors)  # [N, L, C]
         y = torch.tensor(labels, dtype=torch.long)
 

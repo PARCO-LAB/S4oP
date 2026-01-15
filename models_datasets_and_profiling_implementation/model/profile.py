@@ -54,7 +54,7 @@ class ModelProfile:
     def info(self, name=None):
         self.model_time.info(name)
         self.memory_profile.info(name)
-        self._info_test(name)
+        #self._info_test(name)
 
     def _dump_test(self, filename):
         with open("{}.json".format(filename), "w") as json_file:

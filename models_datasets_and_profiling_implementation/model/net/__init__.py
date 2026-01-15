@@ -14,6 +14,7 @@ class NetFactory:
     def __init__(
         self, 
         model_name, 
+        dataset_name,
         vocab_size, 
         d_model, 
         d_state,
@@ -25,6 +26,7 @@ class NetFactory:
     ):
         if model_name == "s4d":
             self.net = __all__["s4d"](vocab_size=vocab_size,
+                                      dataset_name=dataset_name,
                                       d_model=d_model,
                                       d_state=d_state,
                                       depth=depth,
@@ -34,6 +36,7 @@ class NetFactory:
                                       pre_norm=pre_norm)
         elif model_name == "s4":
             self.net = __all__["s4"](vocab_size=vocab_size,
+                                     dataset_name=dataset_name,
                                      d_model=d_model,
                                      d_state=d_state,
                                      depth=depth,

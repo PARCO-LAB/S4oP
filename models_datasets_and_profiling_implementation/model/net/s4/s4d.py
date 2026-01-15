@@ -11,6 +11,7 @@ class S4D(nn.Module):
     def __init__(
         self,
         vocab_size,
+        dataset_name,
         d_model,
         depth,
         dropout,
@@ -23,8 +24,8 @@ class S4D(nn.Module):
 
         self.pre_norm = pre_norm
         
-        if vocab_size <= 12:
-            # Dataset PathFinder → embedding continuo
+        if dataset_name in ["pathfinder", "ecg"]:
+            # Dataset PathFinder e ECG → embedding lineare
             self.embedding = nn.Linear(vocab_size, d_model)
         else:
             # Dataset discreto → embedding token

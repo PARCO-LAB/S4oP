@@ -7,24 +7,24 @@ import gc
 if torch.cuda.is_available() and not torch.cuda.is_initialized():
     torch.cuda.current_device()
 
-from efficient_pruning.model import FineTuning, ModelTest, ModelInfo, ModelProfile
-from efficient_pruning.model.utils import set_benchmark, set_seed
-from pruning_test_config import *
-from config import *
+from models_datasets_and_profiling_implementation.model import FineTuning, ModelTest
+from models_datasets_and_profiling_implementation.model.utils import set_benchmark, set_seed
+from pruning_config import *
+from models_config import *
 
 def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
     
-    path = os.path.join(checkpoint_folder, f"{model_name}_{dataset_name}_pruned.pth")
+    path = os.path.join(checkpoint_folder, f"{model_name}_{dataset_name}_pruned_10%.pth")
     if os.path.exists(path):
         raise ValueError(f"Il file {path} esiste già. Scegliere un'altra cartella o un altro nome per il file.")
     
-    config = PRUNING_DEFAULT_CONFIG
-    ptc= PRUNING_CONFIG[model_name][dataset_name]
+    config = MODELS_CONFIG
+    pc= PRUNING_CONFIG[model_name][dataset_name]
 
     idx_to_remove_per_layer_global = None
     base_checkpoint = f"./checkpoints/{model_name}_{dataset_name}_best.pth"
 
-    for perc in [0.1, 0.3, 0.5, 0.7, 0.9]:
+    for perc in [0.1, 0.3, 0.5, 0.7]:
 
         print(f"\n=== PRUNING {perc*100}% ===")
 
@@ -141,14 +141,21 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
                     layer.layer.pruning_mask[idx_to_remove_seed[i]] = 0
                 print(f"[Layer {i}]: canali rimanenti {H - len(idx_to_remove_seed[i])}/{H}")
 
+            if perc == 0.1 or perc == 0.3:
+                epochs = 8
+            elif perc == 0.5:
+                epochs = 24
+            elif perc == 0.7:
+                epochs = 40
+
             # Fine-tuning
             trainer = FineTuning(
                 model=model,
                 dataset=dataset,
-                epochs=ptc["finetune_epochs"],
-                lr=ptc["lr"],
-                weight_decay=ptc["weight_decay"],
-                checkpoint_folder=checkpoint_folder
+                epochs=epochs,
+                lr=pc["lr"],
+                weight_decay=pc["weight_decay"],
+                checkpoint_folder=os.path.join(checkpoint_folder, f"{model_name}_{dataset_name}_seed{seed}_pruned_{int(perc*100)}%")
             )
             trainer.run()
 
@@ -161,17 +168,7 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
                     checkpoint_folder,
                     f"{model_name}_{dataset_name}_pruned_{int(perc*100)}%.pth"
                 )
-                checkpoint = {
-                    "model_state_dict": model.state_dict(),
-                    "pruning_masks": [
-                        (layer.pruning_mask.clone().cpu()
-                        if layer.__class__.__name__ == "LayerS4D"
-                        else layer.layer.pruning_mask.clone().cpu())
-                        for layer in s4_layers
-                    ],
-                    "seed": seed,
-                }
-                torch.save(checkpoint, best_checkpoint)
+                torch.save(model.state_dict(), best_checkpoint)
 
         # Pulizia memoria
         del trainer
@@ -471,3 +468,230 @@ if __name__ == "__main__":
                         n_pruned = 12
                     elif i == 5:
                         n_pruned = 5"""
+
+#ecg
+"""if perc == 0.1:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i != 0:
+                        perc2 = perc / (sum([2**j for j in range(len(s4_layers) - 1)]))
+                        n_pruned = max(1, int(perc2 * H * len(s4_layers) * (2**(i-1)) + 0.5))
+                    else:
+                        n_pruned = 0
+                elif perc == 0.3:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 15
+                    elif i == 2:
+                        n_pruned = 28
+                    elif i == 3:
+                        n_pruned = 59
+                elif perc == 0.5:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 34
+                    elif i == 2:
+                        n_pruned = 49
+                    elif i == 3:
+                        n_pruned = 20
+                elif perc == 0.7:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 56
+                    elif i == 2:
+                        n_pruned = 28
+                    elif i == 3:
+                        n_pruned = 18
+                elif perc == 0.9:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 96
+                    elif i == 1:
+                        n_pruned = 4
+                    elif i == 2:
+                        n_pruned = 2
+                    elif i == 3:
+                        n_pruned = 0"""
+#listops s4
+"""if perc == 0.1:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i != 0:
+                        perc2 = perc / (sum([2**j for j in range(len(s4_layers) - 1)]))
+                        n_pruned = max(1, int(perc2 * H * len(s4_layers) * (2**(i-1)) + 0.5))
+                    else:
+                        n_pruned = 0
+                elif perc == 0.3:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 6
+                    elif i == 2:
+                        n_pruned = 11
+                    elif i == 3:
+                        n_pruned = 21
+                    elif i == 4:
+                        n_pruned = 39
+                    elif i == 5:
+                        n_pruned = 76
+                elif perc == 0.5:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 10
+                    elif i == 2:
+                        n_pruned = 24
+                    elif i == 3:
+                        n_pruned = 49
+                    elif i == 4:
+                        n_pruned = 60
+                    elif i == 5:
+                        n_pruned = 11
+                elif perc == 0.7:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 53
+                    elif i == 2:
+                        n_pruned = 61
+                    elif i == 3:
+                        n_pruned = 36
+                    elif i == 4:
+                        n_pruned = 4
+                    elif i == 5:
+                        n_pruned = 0
+                elif perc == 0.9:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 67
+                    elif i == 1:
+                        n_pruned = 49
+                    elif i == 2:
+                        n_pruned = 23
+                    elif i == 3:
+                        n_pruned = 10
+                    elif i == 4:
+                        n_pruned = 4
+                    elif i == 5:
+                        n_pruned = 0"""
+#listops s4d
+"""elif perc == 0.3:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 2
+                    elif i == 2:
+                        n_pruned = 4
+                    elif i == 3:
+                        n_pruned = 9
+                    elif i == 4:
+                        n_pruned = 17
+                    elif i == 5:
+                        n_pruned = 32
+                    elif i == 6:
+                        n_pruned = 65
+                    elif i == 7:
+                        n_pruned = 75
+                elif perc == 0.5:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 7
+                    elif i == 2:
+                        n_pruned = 18
+                    elif i == 3:
+                        n_pruned = 34
+                    elif i == 4:
+                        n_pruned = 51
+                    elif i == 5:
+                        n_pruned = 59
+                    elif i == 6:
+                        n_pruned = 36
+                    elif i == 7:
+                        n_pruned = 0
+                elif perc == 0.7:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 26
+                    elif i == 2:
+                        n_pruned = 58
+                    elif i == 3:
+                        n_pruned = 59
+                    elif i == 4:
+                        n_pruned = 43
+                    elif i == 5:
+                        n_pruned = 18
+                    elif i == 6:
+                        n_pruned = 0
+                    elif i == 7:
+                        n_pruned = 0
+                elif perc == 0.9:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 58
+                    elif i == 1:
+                        n_pruned = 76
+                    elif i == 2:
+                        n_pruned = 38
+                    elif i == 3:
+                        n_pruned = 19
+                    elif i == 4:
+                        n_pruned = 9
+                    elif i == 5:
+                        n_pruned = 5
+                    elif i == 6:
+                        n_pruned = 0
+                    elif i == 7:
+                        n_pruned = 0"""
+#imdb
+"""elif perc == 0.3:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 28
+                    elif i == 2:
+                        n_pruned = 59
+                    elif i == 3:
+                        n_pruned = 117
+                elif perc == 0.5:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 53
+                    elif i == 2:
+                        n_pruned = 88
+                    elif i == 3:
+                        n_pruned = 64
+                elif perc == 0.7:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 0
+                    elif i == 1:
+                        n_pruned = 128
+                    elif i == 2:
+                        n_pruned = 64
+                    elif i == 3:
+                        n_pruned = 12
+                elif perc == 0.9:
+                    H = layer.h if layer.__class__.__name__ == "LayerS4D" else layer.d_model
+                    if i == 0:
+                        n_pruned = 160
+                    elif i == 1:
+                        n_pruned = 28
+                    elif i == 2:
+                        n_pruned = 14
+                    elif i == 3:
+                        n_pruned = 3"""
