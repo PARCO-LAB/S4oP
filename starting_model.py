@@ -11,21 +11,13 @@ from models_datasets_and_profiling_implementation.model.utils import set_benchma
 set_seed(42)
 set_benchmark(False)
 
-def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_folder, pruned_model_name):
+def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
 
     # Caricamento configurazione
     config = MODELS_CONFIG
 
     # Creazione path modello
-    model_path = os.path.join("./checkpoints", "{}_{}_best.pth".format(model_name, dataset_name))
-
-    # Caricamento iperparametri se non impostati dall'utente
-    if epochs is None:
-        epochs = config[f"{model_name}"][f"{dataset_name}"]["epochs"]
-    if batch_size is None:
-        batch_size = config[f"{model_name}"][f"{dataset_name}"]["batch_size"]
-    if valsplit is None:
-        valsplit = config["val_split"]
+    model_path = os.path.join(f"./{checkpoints_folder}", f"{model_name}_{dataset_name}_best.pth")
     
     # Se il modello non esiste, lo alleno
     if not os.path.exists(model_path):
@@ -36,8 +28,8 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         model_train = ModelTrain.from_scratch(
             model_name=model_name, 
             dataset_name=dataset_name, 
-            batch_size=batch_size, 
-            valsplit=valsplit, 
+            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
+            valsplit=config["val_split"], 
             num_workers=config["num_workers"], 
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
             d_state=64,
@@ -53,17 +45,17 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
             model_train.model,
             lr=config[f"{model_name}"][f"{dataset_name}"]["lr"],
             weight_decay=config[f"{model_name}"][f"{dataset_name}"]["wd"],
-            epochs=epochs
+            epochs=config[f"{model_name}"][f"{dataset_name}"]["epochs"],
         )
 
-        print(f"\nStarting training for {epochs} epochs with batch size {batch_size}...")
+        print(f"\nStarting training for {config[f'{model_name}'][f'{dataset_name}']['epochs']} epochs with batch size {config[f'{model_name}'][f'{dataset_name}']['batch_size']}...")
         # Training
-        model_train.run(optimizer, scheduler, criterion, epochs, checkpoints_folder)
+        model_train.run(optimizer, scheduler, criterion, config[f"{model_name}"][f"{dataset_name}"]["epochs"], checkpoints_folder=os.path.join(".", f"{checkpoints_folder}"), is_pruned=False)
 
         # Testing
         model_test = ModelTest.from_pth(model_path=model_path, 
-                                        batch_size=batch_size, 
-                                        valsplit=valsplit,
+                                        batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
+                                        valsplit=config["val_split"],
                                         num_workers=config["num_workers"], 
                                         d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
                                         d_state=64,
@@ -80,21 +72,33 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
             model=model_test.model, 
             vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
             seq_len=model_test.dataset.input_shape[1], 
-            batch_size=batch_size, 
+            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"],
             dataset_name=dataset_name
         )
-        model_info.torchinfo(output_dir="model_info")
-        print("\nModel info salvato nella cartella 'model_info'")
+        if not os.path.exists(f"./model_info/{model_name}_{dataset_name}_torchinfo.txt"):
+            model_info.torchinfo(output_dir="model_info")
+            print("\nModel info salvato nella cartella 'model_info'")
+        else:
+            print("\nModel info già esistente nella cartella 'model_info', salto la creazione")
+
+        # Model Profile
+        model_profile = ModelProfile(iterations=100)
+        model_profile.add("prova")
+        model_profile.run("prova", model_test.model, model_info.get_example_input, iterations=100)
+        model_profile.info("prova")
  
     # Se il modello esiste ed è stato specificato un modello prunato
     elif pruned_model_name is not None:
-        model_path = os.path.join(checkpoints_folder, f"{pruned_model_name}.pth")
-        print("\nLoading pruned model from path {}...".format(model_path))
+        model_path = os.path.join(f"./{checkpoints_folder}", f"{pruned_model_name}.pth")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Pruned model path {model_path} does not exist.")
+
+        print(f"\nLoading pruned model from path {model_path}...")
 
         # Testing
         model_test = ModelTest.from_pth(model_path=model_path, 
-                                        batch_size=batch_size, 
-                                        valsplit=valsplit,
+                                        batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
+                                        valsplit=config["val_split"],
                                         num_workers=config["num_workers"], 
                                         d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
                                         d_state=64,
@@ -107,36 +111,19 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         model_test.run()
 
         print("\nStarting model profiling...")
-        # Ricreo il modello da zero per il profiling per evitare problemi con torch.compile
-        """ model_profile_test = ModelTest.from_pth(
-            model_path=model_path,
-            batch_size=batch_size,
-            valsplit=valsplit,
-            num_workers=config["num_workers"],
-            d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
-            d_state=64,
-            depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
-            dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
-            norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
-            pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"]
-        )
-
-        model_profile_test.model = torch.compile(
-            model_profile_test.model,
-            mode="reduce-overhead",
-        ) """
-
         # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
             vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
             seq_len=model_test.dataset.input_shape[1], 
-            batch_size=batch_size, 
+            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
             dataset_name=dataset_name
         )
-        if not os.path.exists(f"./model_info_pruned/{model_name}_{dataset_name}_torchinfo.txt"):
+        if not os.path.exists(f"./model_info_pruned/{pruned_model_name}_torchinfo.txt"):
             model_info.torchinfo(output_dir="model_info_pruned")
-            print("\nModel info salvato nella cartella 'model_info_pruned', salto la creazione")
+            print("\nModel info salvato nella cartella 'model_info_pruned'")
+        else:
+            print("\nModel info già esistente nella cartella 'model_info_pruned', salto la creazione")
 
         # Model Profile
         model_profile = ModelProfile(iterations=100)
@@ -146,12 +133,12 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
     
     # Se il modello esiste (e non è stato specificato un modello prunato), salto l'addestramento
     else: 
-        print("\nSkipping training because model path {} already exists".format(model_path))
+        print(f"\nSkipping training because model path {model_path} already exists")
 
         # Testing
         model_test = ModelTest.from_pth(model_path=model_path, 
-                                        batch_size=batch_size, 
-                                        valsplit=valsplit,
+                                        batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
+                                        valsplit=config["val_split"],
                                         num_workers=config["num_workers"], 
                                         d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
                                         d_state=64,
@@ -164,31 +151,12 @@ def main(model_name, dataset_name, epochs, batch_size, valsplit, checkpoints_fol
         model_test.run()
 
         print("\nStarting model profiling...")
-        # Ricreo il modello da zero per il profiling per evitare problemi con torch.compile
-        """ model_profile_test = ModelTest.from_pth(
-            model_path=model_path,
-            batch_size=batch_size,
-            valsplit=valsplit,
-            num_workers=config["num_workers"],
-            d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
-            d_state=64,
-            depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
-            dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
-            norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
-            pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"]
-        )
-
-        model_profile_test.model = torch.compile(
-            model_profile_test.model,
-            mode="reduce-overhead",
-        ) """
-
         # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
             vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
             seq_len=model_test.dataset.input_shape[1], 
-            batch_size=batch_size, 
+            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
             dataset_name=dataset_name
         )
         if not os.path.exists(f"./model_info/{model_name}_{dataset_name}_torchinfo.txt"):
@@ -217,24 +185,9 @@ if __name__ == "__main__":
         required=True,
         help="Dataset name")
     parser.add_argument(
-        "--epochs", "-e", 
-        dest="epochs", 
-        required=False,
-        help="Epochs amount")
-    parser.add_argument(
-        "--batch-size", "-b", 
-        dest="batch_size", 
-        required=False,
-        help="Batch size")
-    parser.add_argument(
-        "--valsplit", "-v", 
-        dest="valsplit", 
-        required=False, default=0.2,
-        help="Val split percentage: [0, 1]")
-    parser.add_argument(
         "--checkpoints-folder", "-f", 
         dest="checkpoints_folder", 
-        required=False, default=os.path.join(".", "checkpoints"),
+        required=True, default=os.path.join(".", "checkpoints"),
         help="Checkpoints folder")
     parser.add_argument(
         "--pruned-model", "-p",
@@ -243,11 +196,4 @@ if __name__ == "__main__":
         help="Pruned model index")
     args = parser.parse_args()
 
-    if args.epochs is None and args.batch_size is None:
-        main(args.model_name, args.dataset_name, None, None, float(args.valsplit), args.checkpoints_folder, args.pruned_model_name)
-    elif args.epochs is None:
-        main(args.model_name, args.dataset_name, None, int(args.batch_size), float(args.valsplit), args.checkpoints_folder, args.pruned_model_name)
-    elif args.batch_size is None:
-        main(args.model_name, args.dataset_name, int(args.epochs), None, float(args.valsplit), args.checkpoints_folder, args.pruned_model_name)
-    else:
-        main(args.model_name, args.dataset_name, int(args.epochs), int(args.batch_size), float(args.valsplit), args.checkpoints_folder, args.pruned_model_name)
+    main(args.model_name, args.dataset_name, args.checkpoints_folder, args.pruned_model_name)

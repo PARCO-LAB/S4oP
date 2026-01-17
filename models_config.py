@@ -29,15 +29,15 @@ MODELS_CONFIG = {
         },
         "imdb":
         {
-            "depth": 4,
+            "depth": 6,
             "features": 256,
-            "norm": "LN",
+            "norm": "BN",
             "pre-norm": True,
-            "dropout": 0.2,
-            "lr": 0.001,
-            "batch_size": 32,
-            "epochs": 30,
-            "wd": 1e-4,
+            "dropout": 0.0,
+            "lr": 0.01,
+            "batch_size": 16,
+            "epochs": 32,
+            "wd": 0.05,
             "patience": 5
         },
         "pathfinder":
@@ -85,14 +85,14 @@ MODELS_CONFIG = {
         "imdb":
         {
             "depth": 4,
-            "features": 256,
-            "norm": "LN",
+            "features": 64,
+            "norm": "BN",
             "pre-norm": True,
-            "dropout": 0.2,
+            "dropout": 0.0,
             "lr": 0.001,
-            "batch_size": 32,
-            "epochs": 30,
-            "wd": 1e-4,
+            "batch_size": 50,
+            "epochs": 20,
+            "wd": 0,
             "patience": 5
         },
         "pathfinder":

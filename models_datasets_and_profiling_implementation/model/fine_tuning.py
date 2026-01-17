@@ -9,12 +9,14 @@ class FineTuning:
                  epochs,
                  lr,
                  weight_decay,
-                 checkpoint_folder):
+                 checkpoint_folder,
+                 patience):
         self.model_train = ModelTrain(model, dataset)
         self.epochs = epochs
         self.lr = lr
         self.weight_decay = weight_decay
         self.checkpoint_folder = checkpoint_folder
+        self.patience = patience
 
     def run(self): 
         criterion = torch.nn.CrossEntropyLoss() if self.model_train.dataset.name != "ecg" else torch.nn.BCEWithLogitsLoss()
@@ -31,6 +33,8 @@ class FineTuning:
             scheduler=scheduler,
             loss_criterion=criterion,
             epochs=self.epochs,
-            checkpoints_folder=self.checkpoint_folder
+            checkpoints_folder=self.checkpoint_folder,
+            is_pruned=True,
+            patience=self.patience
         )
         

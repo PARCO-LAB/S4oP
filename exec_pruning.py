@@ -4,6 +4,7 @@ import copy
 import random
 import torch
 import gc
+import time
 if torch.cuda.is_available() and not torch.cuda.is_initialized():
     torch.cuda.current_device()
 
@@ -12,19 +13,21 @@ from models_datasets_and_profiling_implementation.model.utils import set_benchma
 from pruning_config import *
 from models_config import *
 
-def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
+def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_folder):
+
+    config = MODELS_CONFIG
+    pc = PRUNING_CONFIG[model_name][dataset_name]
+    pc2 = PRUNING_CONFIG
     
-    path = os.path.join(checkpoint_folder, f"{model_name}_{dataset_name}_pruned_10%.pth")
+    os.makedirs(checkpoint_folder, exist_ok=True)
+    path = os.path.join(f"./{checkpoint_folder}", f"{model_name}_{dataset_name}_pruned_{int(pc2['perc'][0]*100)}%.pth")
     if os.path.exists(path):
         raise ValueError(f"Il file {path} esiste già. Scegliere un'altra cartella o un altro nome per il file.")
-    
-    config = MODELS_CONFIG
-    pc= PRUNING_CONFIG[model_name][dataset_name]
 
     idx_to_remove_per_layer_global = None
-    base_checkpoint = f"./checkpoints/{model_name}_{dataset_name}_best.pth"
+    base_checkpoint = f"./{base_model_folder}/{model_name}_{dataset_name}_best.pth"
 
-    for perc in [0.1, 0.3, 0.5, 0.7]:
+    for perc in pc2["perc"]:
 
         print(f"\n=== PRUNING {perc*100}% ===")
 
@@ -32,7 +35,8 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
         best_checkpoint = None
         best_idx_to_remove = None
 
-        for seed in [7, 42, 123, 2024, 314159]:
+        for seed in pc2["seeds"]:
+            t1 = time.time()
             print(f"\n--- SEED {seed} ---")
             set_seed(seed)
             set_benchmark(False)
@@ -141,21 +145,15 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
                     layer.layer.pruning_mask[idx_to_remove_seed[i]] = 0
                 print(f"[Layer {i}]: canali rimanenti {H - len(idx_to_remove_seed[i])}/{H}")
 
-            if perc == 0.1 or perc == 0.3:
-                epochs = 8
-            elif perc == 0.5:
-                epochs = 24
-            elif perc == 0.7:
-                epochs = 40
-
             # Fine-tuning
             trainer = FineTuning(
                 model=model,
                 dataset=dataset,
-                epochs=epochs,
+                epochs=pc["finetune_epochs"],
                 lr=pc["lr"],
                 weight_decay=pc["weight_decay"],
-                checkpoint_folder=os.path.join(checkpoint_folder, f"{model_name}_{dataset_name}_seed{seed}_pruned_{int(perc*100)}%")
+                checkpoint_folder=os.path.join(f"./{checkpoint_folder}", f"{model_name}_{dataset_name}_seed{seed}_pruned_{int(perc*100)}%.pth"),
+                patience=pc["early_stopping"]
             )
             trainer.run()
 
@@ -164,21 +162,20 @@ def prune_and_finetune(model_name, dataset_name, checkpoint_folder):
             if acc > best_acc:
                 best_acc = acc
                 best_idx_to_remove = idx_to_remove_seed
-                best_checkpoint = os.path.join(
-                    checkpoint_folder,
-                    f"{model_name}_{dataset_name}_pruned_{int(perc*100)}%.pth"
-                )
+                best_checkpoint = os.path.join(f"./{checkpoint_folder}", f"{model_name}_{dataset_name}_pruned_{int(perc*100)}%.pth")
                 torch.save(model.state_dict(), best_checkpoint)
 
-        # Pulizia memoria
-        del trainer
-        del model
-        del model_test
-        del dataset
-        gc.collect()
+            t2 = time.time()
+            print(f"\nTempo di esecuzione per pruning {perc*100}% e seed {seed}: {t2 - t1} secondi")
+            # Pulizia memoria
+            del trainer
+            del model
+            del model_test
+            del dataset
+            gc.collect()
 
-        torch.cuda.empty_cache()
-        torch.cuda.synchronize()
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
 
         # Aggiorna stato globale
         base_checkpoint = best_checkpoint
@@ -200,12 +197,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--checkpoint_folder", "-c",
         dest="checkpoint_folder",
-        required=False, default=os.path.join(".", "checkpoints_pruned"),
-        help="Cartella per salvare i checkpoint"
-    )
+        required=True,
+        help="Nome cartella dove salvare i checkpoint dei modelli prunati")
+    parser.add_argument(
+        "--base_model_folder", "-b",
+        dest="base_model_folder",
+        required=True,
+        help="Nome cartella da dove caricare i modelli base")
     args = parser.parse_args()
 
-    prune_and_finetune(args.model_name, args.dataset_name, args.checkpoint_folder)
+    t1 = time.time()
+    prune_and_finetune(args.model_name, args.dataset_name, args.base_model_folder, args.checkpoint_folder)
+    t2 = time.time()
+    print(f"\nTempo totale di esecuzione: {t2 - t1} secondi")
 
 #################################################################################
 

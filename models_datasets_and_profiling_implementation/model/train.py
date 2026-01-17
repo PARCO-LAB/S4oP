@@ -14,7 +14,6 @@ class ModelTrain:
         self.valloader = self.dataset.get_valloader()
         self.eps = 1e-8
 
-    
     @staticmethod
     def from_scratch(
         model_name, 
@@ -183,23 +182,17 @@ class ModelTrain:
         else:
             return val_accuracy
 
-    def run(self, optimizer, scheduler, loss_criterion, epochs, checkpoints_folder=os.path.join(".", "checkpoints")):
+    def run(self, optimizer, scheduler, loss_criterion, epochs, checkpoints_folder, is_pruned=False, patience=None):
         best_val_accuracy = 0.0
         best_f1_score = 0.0
 
         # Determina il nome base del file per questa run
-        if checkpoints_folder == "./checkpoints_pruned":
-            base_name = f"{self.model_name}_{self.dataset_name}_pruned"
-            model_path = os.path.join(checkpoints_folder, f"{base_name}.pth")
-        elif checkpoints_folder == "./checkpoints":
-            base_name = f"{self.model_name}_{self.dataset_name}_best"
-            model_path = os.path.join(checkpoints_folder, f"{base_name}.pth")
+        if is_pruned:
+            model_path = checkpoints_folder
         else:
-            model_path = f"{checkpoints_folder}.pth"
+            model_path = os.path.join(checkpoints_folder, f"{self.model_name}_{self.dataset_name}_best.pth")
 
-        # Genera un nome univoco per questa run (se esiste già, aggiunge indice) -> Serve per quando si faceva il pruning iterativo e si creavano più run di fine-tuning
-        # model_path = self._generate_run_model_path(base_name, checkpoints_folder)
-
+        i = 0
         for epoch in range(int(epochs)):
             epoch_loss = self.train_step(epoch, optimizer, loss_criterion)
             if isinstance(loss_criterion, torch.nn.BCEWithLogitsLoss):
@@ -217,24 +210,24 @@ class ModelTrain:
                 if val_f1 > best_f1_score:
                     best_f1_score = val_f1
                     self.save(model_path)
+                    i = 0
+                else:
+                    if patience is not None:
+                        i += 1
+                        if i > patience:
+                            print(f"Early stopping at epoch {epoch+1} due to no improvement in F1 score for {patience} consecutive epochs.")
+                            break
             else:
                 if val_accuracy > best_val_accuracy:
                     best_val_accuracy = val_accuracy
                     self.save(model_path)
-
-    def _generate_run_model_path(self, base_name, checkpoints_folder):
-        os.makedirs(checkpoints_folder, exist_ok=True)
-        base_path = os.path.join(checkpoints_folder, f"{base_name}.pth")
-        if not os.path.exists(base_path):
-            return base_path
-
-        # Se esiste già, cerca un indice libero
-        i = 1
-        while True:
-            indexed_path = os.path.join(checkpoints_folder, f"{base_name}_{i}.pth")
-            if not os.path.exists(indexed_path):
-                return indexed_path
-            i += 1
+                    i = 0
+                else:
+                    if patience is not None:
+                        i += 1
+                        if i > patience:
+                            print(f"Early stopping at epoch {epoch+1} due to no improvement in validation accuracy for {patience} consecutive epochs.")
+                            break
 
     def save(self, path):
         torch.save(self.model.state_dict(), path) 
