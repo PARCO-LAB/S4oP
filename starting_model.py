@@ -8,7 +8,7 @@ from models_config import *
 from models_datasets_and_profiling_implementation.model import ModelTrain, ModelTest, ModelInfo, ModelProfile
 from models_datasets_and_profiling_implementation.model.utils import set_benchmark, set_seed, setup_optimizer
 
-set_seed(42)
+set_seed(7)
 set_benchmark(False)
 
 def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
@@ -17,12 +17,13 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
     config = MODELS_CONFIG
 
     # Creazione path modello
-    model_path = os.path.join(f"./{checkpoints_folder}", f"{model_name}_{dataset_name}_best.pth")
+    if pruned_model_name is None:
+        model_path = os.path.join(f"./{checkpoints_folder}", f"{model_name}_{dataset_name}_best.pth")
+    else:
+        model_path = os.path.join(f"./{checkpoints_folder}", f"{pruned_model_name}.pth")
     
     # Se il modello non esiste, lo alleno
-    if not os.path.exists(model_path):
-        if pruned_model_name is not None:
-            raise IndexError("Training from scratch not allowed with pruned model. Remove --pruned-model argument.")
+    if (not os.path.exists(model_path)) and (pruned_model_name is None):
 
         # Creazione modello
         model_train = ModelTrain.from_scratch(
@@ -75,8 +76,9 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"],
             dataset_name=dataset_name
         )
+        os.makedirs("model_info", exist_ok=True)
         if not os.path.exists(f"./model_info/{model_name}_{dataset_name}_torchinfo.txt"):
-            model_info.torchinfo(output_dir="model_info")
+            model_info.torchinfo(output_dir="model_info", name=f"{model_name}_{dataset_name}")
             print("\nModel info salvato nella cartella 'model_info'")
         else:
             print("\nModel info già esistente nella cartella 'model_info', salto la creazione")
@@ -89,7 +91,6 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
  
     # Se il modello esiste ed è stato specificato un modello prunato
     elif pruned_model_name is not None:
-        model_path = os.path.join(f"./{checkpoints_folder}", f"{pruned_model_name}.pth")
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Pruned model path {model_path} does not exist.")
 
@@ -119,11 +120,12 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
             dataset_name=dataset_name
         )
-        if not os.path.exists(f"./model_info_pruned/{pruned_model_name}_torchinfo.txt"):
-            model_info.torchinfo(output_dir="model_info_pruned")
-            print("\nModel info salvato nella cartella 'model_info_pruned'")
+        os.makedirs("model_info_pruned_structural", exist_ok=True)
+        if not os.path.exists(f"./model_info_pruned_structural/{pruned_model_name}_torchinfo.txt"):
+            model_info.torchinfo(output_dir="model_info_pruned_structural", name=pruned_model_name)
+            print("\nModel info salvato nella cartella 'model_info_pruned_structural'")
         else:
-            print("\nModel info già esistente nella cartella 'model_info_pruned', salto la creazione")
+            print("\nModel info già esistente nella cartella 'model_info_pruned_structural', salto la creazione")
 
         # Model Profile
         model_profile = ModelProfile(iterations=100)
@@ -159,8 +161,9 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
             dataset_name=dataset_name
         )
+        os.makedirs("model_info", exist_ok=True)
         if not os.path.exists(f"./model_info/{model_name}_{dataset_name}_torchinfo.txt"):
-            model_info.torchinfo(output_dir="model_info")
+            model_info.torchinfo(output_dir="model_info", name=f"{model_name}_{dataset_name}")
             print("\nModel info salvato nella cartella 'model_info'")
         else:
             print("\nModel info già esistente nella cartella 'model_info', salto la creazione")

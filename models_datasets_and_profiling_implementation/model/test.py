@@ -34,6 +34,13 @@ class ModelTest:
 
         dataset = DatasetFactory(dataset_name=dataset_name, batch_size=batch_size, valsplit=valsplit, num_workers=num_workers).get_dataset()
         num_classes = dataset.get_output_shape()[-1]
+
+        ckpt = torch.load(model_path, map_location=get_device())
+        if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
+            active_idx_layers = ckpt["active_idx_layers"]
+        else:
+            active_idx_layers = None
+
         model = NetFactory(
             model_name=model_name,
             dataset_name=dataset_name,
@@ -45,8 +52,13 @@ class ModelTest:
             num_classes=num_classes,
             norm=norm,
             pre_norm=pre_norm,
+            active_idx_layers=active_idx_layers
         ).get_net()
-        model.load_state_dict(torch.load(model_path), strict=True)
+        
+        if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
+            model.load_state_dict(ckpt["model_state_dict"], strict=True)
+        else:    
+            model.load_state_dict(torch.load(model_path, map_location=get_device()), strict=True)
         model.name = model_name
 
         return ModelTest(model, dataset)

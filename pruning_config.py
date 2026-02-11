@@ -6,18 +6,18 @@ PRUNING_CONFIG = {
             "finetune_epochs": 6,
             "lr": 1e-4,
             "weight_decay": 1e-5,
-            "early_stopping": 1
+            "early_stopping": 2
         },
         "pathfinder":
         {
             "finetune_epochs": 20,
             "lr": 1e-4,
             "weight_decay": 1e-5,
-            "early_stopping": 4
+            "early_stopping": 6
         },
         "imdb":
         {
-            "finetune_epochs": 4,
+            "finetune_epochs": 3,
             "lr": 1e-5,
             "weight_decay": 1e-5,
             "early_stopping": 1
@@ -27,7 +27,7 @@ PRUNING_CONFIG = {
             "finetune_epochs": 20,
             "lr": 1e-4,
             "weight_decay": 1e-5,
-            "early_stopping": 4
+            "early_stopping": 6
         }
     },
     "s4d":
@@ -37,14 +37,14 @@ PRUNING_CONFIG = {
             "finetune_epochs": 5,
             "lr": 1e-4,
             "weight_decay": 1e-5,
-            "early_stopping": 1
+            "early_stopping": 2
         },
         "pathfinder":
         {
             "finetune_epochs": 20,
             "lr": 1e-4,
             "weight_decay": 1e-5,
-            "early_stopping": 4
+            "early_stopping": 6
         },
         "imdb":
         {
@@ -58,7 +58,7 @@ PRUNING_CONFIG = {
             "finetune_epochs": 20,
             "lr": 1e-4,
             "weight_decay": 1e-5,
-            "early_stopping": 4
+            "early_stopping": 6
         }
     },
     "perc": [0.1, 0.3, 0.5, 0.7, 0.9],

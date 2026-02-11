@@ -127,7 +127,7 @@ class ModelInfo:
             os.path.join(output_dir, "{}_{}_torchviz".format(self.model_name, self.dataset_name)), format="png")
 
     @torch.no_grad()
-    def torchinfo(self, output_dir):
+    def torchinfo(self, output_dir, name):
         info = torchinfo.summary( 
             self.model, 
             input_size=(self.batch_size, self.seq_len) if self.dataset_name in ["listops", "imdb"] else (self.batch_size, self.seq_len, self.vocab_size),
@@ -135,14 +135,14 @@ class ModelInfo:
             verbose=0, 
             dtypes=[torch.long] if self.dataset_name in ["listops", "imdb"] else [torch.float],)
 
-        with open(os.path.join(output_dir, f"{self.model_name}_{self.dataset_name}_torchinfo.txt"), "w") as text_file:
+        with open(os.path.join(output_dir, f"{name}_torchinfo.txt"), "w") as text_file:
                 text_file.write(str(info))
 
     @torch.no_grad()
-    def torchsummary(self, output_dir="."):
+    def torchsummary(self, output_dir=".", name=None):
         info = summary(self.model, (self.batch_size, self.seq_len))
 
-        with open(os.path.join(output_dir, f"{self.model_name}_{self.dataset_name}_torchsummary.txt"), "w") as text_file:
+        with open(os.path.join(output_dir, f"{name}_torchsummary.txt"), "w") as text_file:
             text_file.write(str(info))
 
 
