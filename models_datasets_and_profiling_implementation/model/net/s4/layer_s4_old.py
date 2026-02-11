@@ -998,7 +998,6 @@ class SSMKernelDiag(SSMKernel):
         bandlimit: Optional[float] = None,
         backend: str = 'cuda',
         is_real: bool = False,
-        active_idx: Optional[torch.Tensor] = None,  # Optionally specify a subset of the H SSMs to use (for ablations)
         **kwargs,
     ):
         # Special case: for real-valued, d_state semantics change
@@ -1012,24 +1011,12 @@ class SSMKernelDiag(SSMKernel):
         self.bandlimit = bandlimit
         self.backend = backend
         self.is_real = is_real
-        self.active_idx = active_idx if active_idx is not None else torch.arange(self.H)
 
         # Initialize dt, A, B, C
         inv_dt = self.init_dt()
         A, P, B, C = self.init_ssm_dplr()
         # Note that in the Diag case, P will be ignored
         # The DPLR case subclasses this and uses P
-
-        if self.active_idx is not None:
-            active_idx = self.active_idx.to(A.device)
-            A = A.index_select(0, active_idx)
-            B = B.index_select(0, active_idx)
-            C = C.index_select(1, active_idx)
-            inv_dt = inv_dt.index_select(0, active_idx)
-            P = P.index_select(1, active_idx)
-            self.H = len(active_idx)
-            self.n_ssm = self.H
-
         self.register_params(A, B, C, inv_dt, P)
 
     def register_params(self, A, B, C, inv_dt, P):
@@ -1232,7 +1219,7 @@ class SSMKernelDPLR(SSMKernelDiag):
     """SSM kernel for diagonal + low rank (DPLR) state matrices, corresponding to the original S4 model."""
 
     @torch.no_grad()
-    def _setup_C(self, L):
+    def _setup_C(self, L, idx=None):
         """Construct C~ from C.
            If idx is provided, only update the H positions in idx.
         """
@@ -1247,11 +1234,19 @@ class SSMKernelDPLR(SSMKernelDiag):
             return
 
         # Full complex view of C
-        C = _r2c(self.C)  # shape (C, H, N)  (C = channels)
+        C_full = _r2c(self.C)  # shape (C, H, N)  (C = channels)
+        # If idx provided, operate on the subset along H dimension
+        if idx is not None:
+            # slice the H axis (axis=1)
+            C = C_full[:, idx, :]   # (C, H_active, N)
+        else:
+            C = C_full  # (C, H, N)
 
         # compute dA for all H, but we'll index it if idx is provided.
         # NOTE: this currently computes _setup_state() on full params; can be optimized later.
         dA, _ = self._setup_state()  # dA: (H, N, N?) or (H, M, N) per implementation
+        if idx is not None:
+            dA = dA[idx]  # (H_active, ...)
 
         dA_L = power(L, dA)
         # Multiply C by I - dA_L
@@ -1261,8 +1256,19 @@ class SSMKernelDPLR(SSMKernelDiag):
             prod = -prod
         C_ = C_ - prod
         C_ = C_[..., :self.N]  # take conjugate pairs again
-        
-        self.C.copy_(_c2r(C_))
+
+        # write back into underlying real buffer: only the selected H positions
+        if idx is not None:
+            # convert to real and copy into the corresponding slice
+            tmp = _c2r(C_)  # shape (..., H_active, N_real)
+            # target self.C has shape (..., H, N_real)
+            # we must copy into the H positions in idx
+            # convert idx to python list or tensor on same device
+            # Create a view and copy
+            # If self.C is (..., H, N_real), indexing on H dimension:
+            self.C[:, idx, :, :].copy_(tmp)
+        else:
+            self.C.copy_(_c2r(C_))
 
         # update l_kernel preserving dtype/device
         self.l_kernel = 2*self.l_kernel if double_length else self.l_kernel + L
@@ -1335,7 +1341,7 @@ class SSMKernelDPLR(SSMKernelDiag):
         # Track the current kernel length this is "attuned" to
         self.register_buffer('l_kernel', torch.tensor(0))
 
-    def _get_params(self, rate=1.0):
+    def _get_params(self, rate=1.0, idx=None):
         """
         Return dt, A, B, C, P, Q possibly restricted to idx along H dimension.
         If idx is None returns same as original.
@@ -1347,16 +1353,30 @@ class SSMKernelDPLR(SSMKernelDiag):
         P = repeat(P, 'r t n -> r (v t) n', v=self.repeat)  # (R H N)
         Q = P.conj()  # (R H N)
 
+        if idx is None:
+            return dt, A, B, C, P, Q
+
+        # idx is a 1D LongTensor of active H indices
+        # slice along H dimension for tensors that have H
+        dt = dt[idx]            # (H_active)
+        A = A[idx]              # (H_active, N)
+        # B has batch dim on -3, but typically shape (B?, H, N). We slice H axis
+        B = B[..., idx, :] if B.ndim >= 2 else B  # safe slicing; adapt if shapes differ
+        C = C[..., idx, :] if C.ndim >= 2 else C
+        P = P[..., idx, :] if P.ndim >= 2 else P
+        Q = Q[..., idx, :] if Q.ndim >= 2 else Q
+
         return dt, A, B, C, P, Q
 
-    def forward(self, state=None, rate=1.0, L=None):
+    def forward(self, state=None, rate=1.0, L=None, idx=None):
         """See Kernel.forward() for argument documentation.
+           New optional arg: idx -> LongTensor of H indices to compute
         """
 
         # If we haven't done initial C setup, do it for the requested L.
         if self.l_kernel.item() == 0 and self.l_max is not None and self.l_max > 0:
             # If idx specified, only setup C for those H indices; otherwise global
-            self._setup_C(self.l_max)
+            self._setup_C(self.l_max, idx=idx)
 
         if L is None:
             L = round(self.l_kernel.item() / rate) if self.l_kernel.item() > 0 else 0
@@ -1364,15 +1384,21 @@ class SSMKernelDPLR(SSMKernelDiag):
         continuous_L = round(rate*L)
         while continuous_L > self.l_kernel.item():
             # If idx specified, compute setup_C only for those indices
-            self._setup_C(continuous_L)
+            self._setup_C(continuous_L, idx=idx)
 
         discrete_L = round(self.l_kernel.item()/rate)
 
         # Get parameters possibly restricted to idx
-        dt, A, B, C, P, Q = self._get_params(rate)
+        dt, A, B, C, P, Q = self._get_params(rate, idx=idx)
 
         # Get FFT nodes (unchanged)
         omega, z = self._omega(discrete_L, dtype=A.dtype, device=A.device, cache=(rate==1.0))
+        # If a state was provided, the code path that manipulates state expects full-H length shape.
+        # For idx support, the caller (FFTConv) should also call forward_state and step with consistent idx-handling.
+        if state is not None and idx is not None:
+            # slice incoming state along H dim (assume state shape (..., H, N) or similar)
+            state = state[..., idx, :]
+
         # Incorporate dt into A
         A = A * dt
 
@@ -1666,7 +1692,6 @@ class FFTConv(nn.Module):
         drop_kernel=0.0,
         mode='dplr',
         kernel=None,
-        active_idx=None, # Optional LongTensor of active H indices for structured pruning
         **kernel_args,  # Arguments passed into inner convolution kernel
     ):
         super().__init__()
@@ -1677,20 +1702,12 @@ class FFTConv(nn.Module):
         self.transposed = transposed
         self.swap_channels = swap_channels
 
-        self.active_idx = active_idx
-        self.pruned_idx = torch.tensor([i for i in range(d_model) if i not in active_idx], dtype=torch.long, device=active_idx.device) if active_idx is not None else None
-        self.d_model_active = len(active_idx) if active_idx is not None else d_model
 
         if activation is not None and activation.startswith('glu'):
             channels *= 2
         self.activation = Activation(activation, dim=1 if self.transposed else -1)
 
-        self.D = torch.randn(channels, self.d_model)
-        if self.active_idx is not None:
-            active_idx = self.active_idx.to(self.D.device)
-            self.D = nn.Parameter(self.D[:, active_idx])  # Only train the active channels in D
-        else:
-            self.D = nn.Parameter(self.D)
+        self.D = nn.Parameter(torch.randn(channels, self.d_model))
 
         if self.bidirectional:
             channels *= 2
@@ -1706,7 +1723,6 @@ class FFTConv(nn.Module):
         kernel_cls = kernel_registry[kernel]
         self.kernel = kernel_cls(
             d_model=self.d_model,
-            active_idx=self.active_idx,
             l_max=self.l_max,
             channels=channels,
             **kernel_args,
@@ -1716,18 +1732,29 @@ class FFTConv(nn.Module):
         self.drop = dropout_fn(dropout) if dropout > 0.0 else nn.Identity()
         self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0.0 else nn.Identity()
 
+        # Pruning mask for structured pruning of model dimension
+        self.register_buffer("pruning_mask", torch.ones(d_model, dtype=torch.bool))
+
     def forward(self, x, state=None, rate=1.0, **kwargs):
         if not self.transposed:
             x = x.transpose(-1, -2)
         L = x.size(-1)
         #print("Input shape:", x.shape)
 
+        # Applica pruning mask
+        if self.pruning_mask is not None:
+            idx_active = torch.nonzero(self.pruning_mask, as_tuple=True)[0]
+            idx_pruned = torch.nonzero(~self.pruning_mask.bool(), as_tuple=True)[0]
+        else:
+            idx_active = torch.arange(self.d_model, device=x.device)
+            idx_pruned = []
+
         # Seleziona solo i canali attivi per l'SSM
-        x_active = x[:, self.active_idx, :] if self.active_idx is not None else x
+        x_active = x[:, idx_active, :]
 
         # ---- Calcolo SSM solo sui canali attivi ----
         l_kernel = L if self.L is None else min(L, round(self.L / rate))
-        k, k_state = self.kernel(L=l_kernel, rate=rate, state=state, **kwargs)
+        k, k_state = self.kernel(L=l_kernel, rate=rate, state=state, idx=idx_active, **kwargs)
         #print(k)
 
         if self.bidirectional:
@@ -1744,15 +1771,15 @@ class FFTConv(nn.Module):
         y_active = torch.fft.irfft(y_f, n=l_kernel + L)[..., :L]
 
         # D term (skip connection)
-        y_active = y_active + contract('bhl,ch->bchl', x_active, self.D)
+        y_active = y_active + contract('bhl,ch->bchl', x_active, self.D[:, idx_active])
 
         # Ricostruisci output finale
         y = torch.zeros(x.shape[0], self.channels, self.d_model, L, device=x.device, dtype=x.dtype)
-        y[:, :, self.active_idx, :] = y_active
+        y[:, :, idx_active, :] = y_active
 
         # Copia diretta per i canali prunati
-        if self.active_idx is not None:
-            y[:, 0, self.pruned_idx, :] = x[:, self.pruned_idx, :]
+        if len(idx_pruned) > 0:
+            y[:, 0, idx_pruned, :] = x[:, idx_pruned, :]
 
         # Dropout e reshape finale
         y = self.drop(y)
@@ -1793,7 +1820,7 @@ class FFTConv(nn.Module):
         return self.d_model * self.channels
 
 
-class S4Block(nn.Module):
+class S4Block_old(nn.Module):
     """General block design wrapping an inner layer. Currently only layer=FFTConv is supported, but easy to incorporate others.
 
     Arguments:
@@ -1826,14 +1853,13 @@ class S4Block(nn.Module):
         dropout=0.0,
         tie_dropout=False,
         transposed=True,
-        active_idx=None, # For structured pruning of model dimension; should be a 1D LongTensor of active indices along H dimension. If None, all dimensions are active.
         **layer_args,  # Arguments into inner layer (e.g. FFTConv)
     ):
         super().__init__()
 
         self.d_model = d_model
         self.transposed = transposed
-        self.active_idx = active_idx
+
         self.gate = gate
         self.bottleneck = bottleneck
 
@@ -1868,7 +1894,7 @@ class S4Block(nn.Module):
         # But the options here are all agnostic to the inner block
         # If other types of inner layers are desired, it is easy
         # to add an option to swap a different module in
-        self.layer = FFTConv(d_model, transposed=False, dropout=dropout, tie_dropout=tie_dropout, active_idx=active_idx, **layer_args)
+        self.layer = FFTConv(d_model, transposed=False, dropout=dropout, tie_dropout=tie_dropout, **layer_args)
 
         # Pointwise operations
 

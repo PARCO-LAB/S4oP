@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
-from .layer_s4d import LayerS4D
+from .layer_s4d_old import LayerS4D_old
 
 def dropout_fn(p):
     if p > 0.0:
         return nn.Dropout(p)
     return nn.Identity()
 
-class S4D(nn.Module):
+class S4D_old(nn.Module):
     def __init__(
         self,
         vocab_size,
@@ -16,7 +16,6 @@ class S4D(nn.Module):
         depth,
         dropout,
         num_classes,
-        active_idx_layers, # lista di indici attivi
         norm,       # "LN" (LayerNorm) oppure "BN" (BatchNorm)
         pre_norm,   # se normalizzare prima o dopo il blocco
         d_state=64, # stato interno di S4D
@@ -24,7 +23,6 @@ class S4D(nn.Module):
         super().__init__()
 
         self.pre_norm = pre_norm
-        self.active_idx_layers = active_idx_layers
         self.dataset_name = dataset_name
         
         if dataset_name in ["pathfinder", "ecg"]:
@@ -40,10 +38,9 @@ class S4D(nn.Module):
         self.norms = nn.ModuleList()
         self.dropouts = nn.ModuleList()
 
-        for i in range(depth):
-
+        for _ in range(depth):
             self.s4d_layers.append(
-                LayerS4D(d_model, active_idx=active_idx_layers[i] if active_idx_layers is not None else None, d_state=d_state, dropout=dropout)
+                LayerS4D_old(d_model, d_state=d_state, dropout=dropout)
             )
             if norm.upper() == "LN":
                 self.norms.append(nn.LayerNorm(d_model))

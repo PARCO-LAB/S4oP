@@ -27,45 +27,21 @@ class DropoutNd(nn.Module):
         return X
 
 class S4DKernel(nn.Module):
-    """Generate convolution kernel from diagonal SSM parameters.
-       Supports computing only a subset of channels (idx).
-    """
-
-    def __init__(self, d_model, N=64, dt_min=0.001, dt_max=0.1, lr=None):
+    def __init__(self, H_active, N=64, dt_min=0.001, dt_max=0.1, lr=None):
         super().__init__()
-        H = d_model
-        log_dt = torch.rand(H) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min)
-        C = torch.randn(H, N // 2, dtype=torch.cfloat)
-        self.C = nn.Parameter(torch.view_as_real(C))
+        self.H = H_active
+        self.N = N
 
-        log_A_real = torch.log(0.5 * torch.ones(H, N // 2))
-        A_imag = math.pi * repeat(torch.arange(N // 2), 'n -> h n', h=H)
+        log_dt = torch.rand(self.H) * (math.log(dt_max) - math.log(dt_min)) + math.log(dt_min)
+        C = torch.randn(self.H, N // 2, dtype=torch.cfloat)
+
+        self.C = nn.Parameter(torch.view_as_real(C))
+        log_A_real = torch.log(0.5 * torch.ones(self.H, N // 2))
+        A_imag = math.pi * repeat(torch.arange(N // 2), 'n -> h n', h=self.H)
 
         self.register("log_dt", log_dt, lr)
         self.register("log_A_real", log_A_real, lr)
         self.register("A_imag", A_imag, lr)
-
-    def forward(self, L, idx=None):
-        if idx is None:
-            dt = torch.exp(self.log_dt)
-            C = torch.view_as_complex(self.C)
-            log_A_real = self.log_A_real
-            A_imag = self.A_imag
-        else:
-            if idx.numel() == 0:
-                return torch.empty((0, L))
-            dt = torch.exp(self.log_dt[idx])
-            C = torch.view_as_complex(self.C)[idx]
-            log_A_real = self.log_A_real[idx]
-            A_imag = self.A_imag[idx]
-
-        A = -torch.exp(log_A_real) + 1j * A_imag
-        dtA = A * dt.unsqueeze(-1)
-        arange_L = torch.arange(L, device=self.C.device)
-        Ktmp = dtA.unsqueeze(-1) * arange_L
-        Cmod = C * (torch.exp(dtA) - 1.0) / A
-        K = 2 * torch.einsum('hn, hnl -> hl', Cmod, torch.exp(Ktmp)).real
-        return K
 
     def register(self, name, tensor, lr=None):
         if lr == 0.0:
@@ -77,63 +53,76 @@ class S4DKernel(nn.Module):
                 optim["lr"] = lr
             getattr(self, name)._optim = optim
 
+    def forward(self, L):
+        dt = torch.exp(self.log_dt)
+        C = torch.view_as_complex(self.C)
+        A = -torch.exp(self.log_A_real) + 1j * self.A_imag
+
+        dtA = A * dt.unsqueeze(-1)
+        arange_L = torch.arange(L, device=C.device)
+
+        Ktmp = dtA.unsqueeze(-1) * arange_L
+        Cmod = C * (torch.exp(dtA) - 1.0) / A
+        K = 2 * torch.einsum('hn, hnl -> hl', Cmod, torch.exp(Ktmp)).real
+        return K
+
 class LayerS4D(nn.Module):
-    def __init__(self, d_model, d_state=64, dropout=0.0, transposed=True, **kernel_args):
+    def __init__(
+        self,
+        d_model,
+        active_idx,          # lista o tensor di indici attivi
+        d_state=64,
+        dropout=0.0,
+        transposed=True,
+        **kernel_args,
+    ):
         super().__init__()
         self.h = d_model
-        self.n = d_state
-        self.d_output = self.h
         self.transposed = transposed
 
-        self.register_buffer("pruning_mask", torch.ones(d_model, dtype=torch.bool))
-        self.D = nn.Parameter(torch.randn(self.h))
-        self.kernel = S4DKernel(self.h, N=self.n, **kernel_args)
+        if not isinstance(active_idx, torch.Tensor):
+            active_idx = torch.tensor(active_idx, dtype=torch.long)
+
+        self.register_buffer("active_idx", active_idx)
+
+        self.h_active = active_idx.numel()
+
+        # === PARAMETRI SOLO PER CANALI ATTIVI ===
+        self.kernel = S4DKernel(self.h_active, N=d_state, **kernel_args)
+        self.D = nn.Parameter(torch.randn(self.h_active))
+
         self.activation = nn.GELU()
         self.dropout = DropoutNd(dropout) if dropout > 0 else nn.Identity()
 
+        # Output mixing invariato (shape [B, H, L])
         self.output_linear = nn.Sequential(
-            nn.Conv1d(self.h, 2 * self.h, kernel_size=1),
+            nn.Conv1d(d_model, 2 * d_model, kernel_size=1),
             nn.GLU(dim=-2),
         )
-
-    def set_pruning_mask(self, mask):
-        if isinstance(mask, torch.Tensor) and mask.dtype == torch.bool:
-            if mask.numel() != self.h:
-                raise ValueError("mask length must equal d_model")
-            self.pruning_mask = mask.clone()
-        else:
-            new_mask = torch.zeros(self.h, dtype=torch.bool)
-            new_mask[mask] = True
-            self.pruning_mask = new_mask
 
     def forward(self, u, **kwargs):
         if not self.transposed:
             u = u.transpose(-1, -2)
-        L = u.size(-1)
 
-        mask = self.pruning_mask
-        active_idx = mask.nonzero(as_tuple=True)[0]
-        inactive_idx = (~mask).nonzero(as_tuple=True)[0]
+        B, H, L = u.shape
+        y = u.clone()  # passthrough di default
 
-        y = torch.zeros_like(u)
+        if self.h_active > 0:
+            u_act = u.index_select(1, self.active_idx)
 
-        if active_idx.numel() > 0:
-            k_act = self.kernel(L=L, idx=active_idx)
-            kf = torch.fft.rfft(k_act, n=2 * L)
-            u_act = u.index_select(1, active_idx)
+            k = self.kernel(L)
+            kf = torch.fft.rfft(k, n=2 * L)
             uf = torch.fft.rfft(u_act, n=2 * L)
-            y_act = torch.fft.irfft(uf * kf, n=2 * L)[..., :L]
-            D_act = self.D.index_select(0, active_idx).view(1, -1, 1)
-            y_act = y_act + u_act * D_act
-            y = y.index_copy(1, active_idx, y_act)
 
-        if inactive_idx.numel() > 0:
-            u_inact = u.index_select(1, inactive_idx)
-            y = y.index_copy(1, inactive_idx, u_inact)
+            y_act = torch.fft.irfft(uf * kf, n=2 * L)[..., :L]
+            y_act = y_act + u_act * self.D.view(1, -1, 1)
+
+            y.index_copy_(1, self.active_idx, y_act)
 
         y = self.dropout(self.activation(y))
         y = self.output_linear(y)
 
         if not self.transposed:
             y = y.transpose(-1, -2)
+
         return y, None

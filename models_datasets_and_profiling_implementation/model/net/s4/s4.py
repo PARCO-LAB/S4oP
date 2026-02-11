@@ -19,10 +19,13 @@ class S4(nn.Module):
         norm,       # "LN" (LayerNorm) oppure "BN" (BatchNorm)
         pre_norm,   # se normalizzare prima o dopo il blocco
         d_state=64, # stato interno di S4D
+        active_idx_layers=None, # lista di indici attivi per ogni layer
     ):
         super().__init__()
 
         self.pre_norm = pre_norm
+        self.dataset_name = dataset_name
+        self.active_idx_layers = active_idx_layers
 
         if dataset_name in ["pathfinder", "ecg"]:
             # Dataset PathFinder e ECG → embedding continuo
@@ -37,9 +40,9 @@ class S4(nn.Module):
         self.norms = nn.ModuleList()
         self.dropouts = nn.ModuleList()
 
-        for _ in range(depth):
+        for i in range(depth):
             self.s4_layers.append(
-                S4Block(d_model, d_state=d_state, dropout=dropout)
+                S4Block(d_model, d_state=d_state, dropout=dropout, active_idx=active_idx_layers[i] if active_idx_layers is not None else None)
             )
             if norm.upper() == "LN":
                 self.norms.append(nn.LayerNorm(d_model))
