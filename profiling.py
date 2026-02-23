@@ -61,7 +61,10 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         torch.cuda.synchronize()
 
         # forward da profilare
+        torch.cuda.cudart().cudaProfilerStart()
         _ = model(example_input)
+        torch.cuda.cudart().cudaProfilerStop()
+
 
         torch.cuda.synchronize()
     # Il modello non esiste, lancio un errore

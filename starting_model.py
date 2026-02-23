@@ -8,7 +8,7 @@ from models_config import *
 from models_datasets_and_profiling_implementation.model import ModelTrain, ModelTest, ModelInfo, ModelProfile
 from models_datasets_and_profiling_implementation.model.utils import set_benchmark, set_seed, setup_optimizer
 
-set_seed(7)
+set_seed(42)
 set_benchmark(False)
 
 def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
