@@ -45,10 +45,10 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             dataset_name=dataset_name,
             vocab_size=18 if dataset_name == "listops" else 30522,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
-            d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
+            d_state=64,
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
-            num_classes=config[f"{model_name}"][f"{dataset_name}"]["num_classes"],
+            num_classes=10 if dataset_name == "listops" else 2,
             norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
             pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"],
             active_idx_layers=active_idx_layers
@@ -91,12 +91,13 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             dataset_name=dataset_name,
             vocab_size=18 if dataset_name == "listops" else 30522,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
-            d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
+            d_state=64,
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
-            num_classes=config[f"{model_name}"][f"{dataset_name}"]["num_classes"],
+            num_classes=10 if dataset_name == "listops" else 2,
             norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
-            pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"]
+            pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"],
+            active_idx_layers=active_idx_layers
         ).get_net()
 
         if isinstance(ckpt, dict) and "model_state_dict" in ckpt:

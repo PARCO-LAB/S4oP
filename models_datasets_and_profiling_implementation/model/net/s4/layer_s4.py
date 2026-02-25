@@ -1659,17 +1659,18 @@ class FFTConv(nn.Module):
         channels=1,
         swap_channels=False,
         bidirectional=False,
-        activation='gelu', # Activation after layer
+        activation='gelu',  # Activation after layer
         transposed=True,
         dropout=0.0,
         tie_dropout=False,
         drop_kernel=0.0,
         mode='dplr',
         kernel=None,
-        active_idx=None, # Optional LongTensor of active H indices for structured pruning
-        **kernel_args,  # Arguments passed into inner convolution kernel
+        active_idx=None,  # Optional LongTensor of active H indices for structured pruning
+        **kernel_args,
     ):
         super().__init__()
+
         self.d_model = d_model
         self.L = self.l_max = l_max
         self.bidirectional = bidirectional
@@ -1677,41 +1678,53 @@ class FFTConv(nn.Module):
         self.transposed = transposed
         self.swap_channels = swap_channels
 
-        self.active_idx = active_idx
-        self.pruned_idx = torch.tensor([i for i in range(d_model) if i not in active_idx], dtype=torch.long, device=active_idx.device) if active_idx is not None else None
-        self.d_model_active = len(active_idx) if active_idx is not None else d_model
+        # --- Gestione active_idx ---
+        if active_idx is not None:
+            if isinstance(active_idx, list):
+                active_idx = torch.tensor(active_idx, dtype=torch.long)
+            self.active_idx = active_idx
+            self.pruned_idx = torch.tensor(
+                [i for i in range(d_model) if i not in active_idx],
+                dtype=torch.long
+            )
+            self.d_model_active = len(active_idx)
+        else:
+            self.active_idx = None
+            self.pruned_idx = None
+            self.d_model_active = d_model
 
+        # --- Gestione canali per GLU ---
+        channels_eff = channels
         if activation is not None and activation.startswith('glu'):
-            channels *= 2
+            channels_eff *= 2
         self.activation = Activation(activation, dim=1 if self.transposed else -1)
 
-        self.D = torch.randn(channels, self.d_model)
+        # --- Parametro D ---
+        self.D = torch.randn(channels_eff, d_model)
         if self.active_idx is not None:
             active_idx = self.active_idx.to(self.D.device)
-            self.D = nn.Parameter(self.D[:, active_idx])  # Only train the active channels in D
+            self.D = nn.Parameter(self.D[:, active_idx])
         else:
             self.D = nn.Parameter(self.D)
 
+        # --- Adatta canali se bidirezionale ---
         if self.bidirectional:
-            channels *= 2
+            channels_eff *= 2
 
-        # Inner convolution kernel
+        # --- Inizializzazione kernel ---
         if mode is not None:
             assert kernel is None, "Pass either mode or kernel but not both"
-            # log.info(
-            #     "Argument 'mode' is deprecated and renamed to 'kernel',"
-            #     "and will be removed in a future version."
-            # )
-            kernel, mode = mode, kernel
+            kernel, mode = mode, kernel  # compatibilità vecchie versioni
         kernel_cls = kernel_registry[kernel]
         self.kernel = kernel_cls(
             d_model=self.d_model,
             active_idx=self.active_idx,
             l_max=self.l_max,
-            channels=channels,
+            channels=channels_eff,
             **kernel_args,
         )
 
+        # --- Dropout ---
         dropout_fn = DropoutNd if tie_dropout else nn.Dropout
         self.drop = dropout_fn(dropout) if dropout > 0.0 else nn.Identity()
         self.drop_kernel = nn.Dropout(drop_kernel) if drop_kernel > 0.0 else nn.Identity()

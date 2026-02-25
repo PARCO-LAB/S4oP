@@ -47,7 +47,7 @@ class TimeProfile:
         starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
         timings = np.zeros((iterations, 1))
 
-        for _ in range(10): # warmup
+        for _ in range(50): # warmup
             ret = function()
 
         for i in range(iterations):
