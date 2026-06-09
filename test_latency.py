@@ -22,6 +22,24 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         model_path = os.path.join(f"./{checkpoints_folder}", f"{model_name}_{dataset_name}_best.pth")
     else:
         model_path = os.path.join(f"./{checkpoints_folder}", f"{pruned_model_name}.pth")
+
+    # Metadati in base al dataset
+    if dataset_name == "imdb":
+        vocab_size = 30522
+        seq_len = 4096
+        num_classes = 2
+    elif dataset_name == "listops":
+        vocab_size = 18
+        seq_len = 5995
+        num_classes = 10
+    elif dataset_name == "pathfinder":
+        vocab_size = 3
+        seq_len = 1024
+        num_classes = 2
+    elif dataset_name == "ecg":
+        vocab_size = 12
+        seq_len = 4096
+        num_classes = 6
     
     # Se il modello non esiste
     if (not os.path.exists(model_path)) and (pruned_model_name is None):
@@ -43,12 +61,12 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         model = NetFactory(
             model_name=model_name,
             dataset_name=dataset_name,
-            vocab_size=18 if dataset_name == "listops" else 30522,
+            vocab_size=vocab_size,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
             d_state=64,
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
-            num_classes=10 if dataset_name == "listops" else 2,
+            num_classes=num_classes,
             norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
             pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"],
             active_idx_layers=active_idx_layers
@@ -63,17 +81,18 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         # Model Info
         model_info = ModelInfo(
             model=model, 
-            vocab_size=18 if dataset_name == "listops" else 30522,
-            seq_len=5995 if dataset_name == "listops" else 4096, 
-            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
+            vocab_size=vocab_size,
+            seq_len=seq_len, 
+            batch_size=1, 
             dataset_name=dataset_name
         )
 
         # Model Profile
-        model_profile = ModelProfile(iterations=100)
-        model_profile.add("prova")
-        model_profile.run("prova", model, model_info.get_example_input, iterations=100)
-        model_profile.info("prova")
+        with torch.no_grad():
+            model_profile = ModelProfile(iterations=100)
+            model_profile.add("prova")
+            model_profile.run("prova", model, model_info.get_example_input, iterations=100)
+            model_profile.info("prova")
     
     # Se il modello esiste (e non è stato specificato un modello prunato), salto l'addestramento
     else: 
@@ -89,12 +108,12 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         model = NetFactory(
             model_name=model_name,
             dataset_name=dataset_name,
-            vocab_size=18 if dataset_name == "listops" else 30522,
+            vocab_size=vocab_size,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
             d_state=64,
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
-            num_classes=10 if dataset_name == "listops" else 2,
+            num_classes=num_classes,
             norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
             pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"],
             active_idx_layers=active_idx_layers
@@ -109,17 +128,18 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         # Model Info
         model_info = ModelInfo(
             model=model, 
-            vocab_size=18 if dataset_name == "listops" else 30522,
-            seq_len=5995 if dataset_name == "listops" else 4096, 
-            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
+            vocab_size=vocab_size,
+            seq_len=seq_len, 
+            batch_size=1, 
             dataset_name=dataset_name
         )
 
-        # Model Profile        
-        model_profile = ModelProfile(iterations=100)
-        model_profile.add("prova")
-        model_profile.run("prova", model, model_info.get_example_input, iterations=100)
-        model_profile.info("prova")
+        # Model Profile    
+        with torch.no_grad():    
+            model_profile = ModelProfile(iterations=100)
+            model_profile.add("prova")
+            model_profile.run("prova", model, model_info.get_example_input, iterations=100)
+            model_profile.info("prova")
 
 # Main
 if __name__ == "__main__":

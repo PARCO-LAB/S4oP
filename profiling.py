@@ -28,7 +28,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         # Caricamento modello
         model_test = ModelTest.from_pth(
             model_path=model_path,
-            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"],
+            batch_size=1,
             valsplit=config["val_split"],
             num_workers=0, # Niente workers per evitare problemi di multiprocessing
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
@@ -45,7 +45,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             model=model_test.model, 
             vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
             seq_len=model_test.dataset.input_shape[1], 
-            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
+            batch_size=1, 
             dataset_name=dataset_name
         )
 
