@@ -291,7 +291,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
             model = model_test.model
             dataset = model_test.dataset
 
-            # Fine-tuning
+            """ # Fine-tuning
             trainer = FineTuning(
                 model=model,
                 dataset=dataset,
@@ -301,7 +301,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
                 checkpoint_folder=os.path.join(f"./{checkpoint_folder}", f"{model_name}_{dataset_name}_seed{seed}_pruned_{int(perc*100)}%.pth"),
                 patience=pc["early_stopping"]
             )
-            trainer.run()
+            trainer.run() """
 
             acc = model_test.run()
 
@@ -320,7 +320,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
             t2 = time.time()
             timers[perc][seed] = t2 - t1
             # Pulizia memoria
-            del trainer
+            """ del trainer """
             del model
             del model_test
             del dataset

@@ -37,7 +37,8 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
             norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
-            pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"]
+            pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"],
+            active_idx_layers=[list(range(config[f"{model_name}"][f"{dataset_name}"]["features"])) for _ in range(config[f"{model_name}"][f"{dataset_name}"]["depth"])]
         )
         print(f"\nModello: {model_name}, Dataset: {dataset_name}")
         print(model_train.model)
@@ -63,7 +64,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
                                         depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
                                         dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
                                         norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
-                                        pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"]
+                                        pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"],
                                         )
         print("\nStarting testing...")
         model_test.run()

@@ -26,7 +26,8 @@ class ModelTrain:
         depth,
         dropout,
         norm,
-        pre_norm
+        pre_norm,
+        active_idx_layers=None
     ):
         dataset = DatasetFactory(dataset_name=dataset_name, batch_size=batch_size, valsplit=valsplit, num_workers=num_workers).get_dataset()
         num_classes = dataset.get_output_shape()[-1]
@@ -41,7 +42,8 @@ class ModelTrain:
             dropout=dropout,     
             num_classes=num_classes,
             norm=norm,
-            pre_norm=pre_norm
+            pre_norm=pre_norm,
+            active_idx_layers=active_idx_layers
         ).get_net()
         model.name = model_name
         return ModelTrain(model, dataset)
@@ -232,6 +234,6 @@ class ModelTrain:
     def save(self, path):
         #torch.save(self.model.state_dict(), path) 
         torch.save({
-            "state_dict": self.model.state_dict(),
+            "model_state_dict": self.model.state_dict(),
             "active_idx_layers": self.model.active_idx_layers
         }, path)
