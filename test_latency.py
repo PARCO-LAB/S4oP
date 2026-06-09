@@ -23,7 +23,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
     else:
         model_path = os.path.join(f"./{checkpoints_folder}", f"{pruned_model_name}.pth")
     
-    # Se il modello non esiste, lo alleno
+    # Se il modello non esiste
     if (not os.path.exists(model_path)) and (pruned_model_name is None):
         raise FileNotFoundError(f"Model path {model_path} does not exist.")
     

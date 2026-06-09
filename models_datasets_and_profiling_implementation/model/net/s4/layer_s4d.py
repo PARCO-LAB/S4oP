@@ -80,6 +80,9 @@ class LayerS4D(nn.Module):
         self.h = d_model
         self.transposed = transposed
 
+        if active_idx is None:
+            active_idx = [i for i in range(self.h)]
+
         if not isinstance(active_idx, torch.Tensor):
             active_idx = torch.tensor(active_idx, dtype=torch.long)
 

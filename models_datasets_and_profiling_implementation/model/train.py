@@ -232,6 +232,6 @@ class ModelTrain:
     def save(self, path):
         #torch.save(self.model.state_dict(), path) 
         torch.save({
-            "state_dict": self.model.state_dict(),
+            "model_state_dict": self.model.state_dict(),
             "active_idx_layers": self.model.active_idx_layers
         }, path)
