@@ -109,6 +109,22 @@ MODELS_CONFIG = {
             "patience": 20
         }
     },
+    "mamba":
+    {
+        "listops":
+        {
+            "depth": 3,
+            "features": 16,
+            "norm": "BN",
+            "pre-norm": False,
+            "dropout": 0.0,
+            "lr": 0.01,
+            "batch_size": 50,
+            "epochs": 50,
+            "wd": 0.01,
+            "patience": 5
+        },
+    },
     "num_workers": 4,
     "val_split": 0.2
 }

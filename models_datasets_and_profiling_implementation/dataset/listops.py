@@ -1,8 +1,9 @@
 import torch
-from torch.utils.data import Dataset, random_split
+from torch.utils.data import Dataset
 import pandas as pd
 import os
 from .interface import DatasetInterface
+
 
 class ListOpsLazy(Dataset):
     def __init__(self, tsv_path, vocab, max_len):
@@ -31,20 +32,20 @@ class LRAListOps(DatasetInterface):
     def __init__(self, batch_size, valsplit, num_workers):
         super().__init__("listops", batch_size, num_workers)
 
-        # Caricamento dati
-        root_data = "data/"
+        root_data = "data"
         train_path = os.path.join(root_data, "listops/train.tsv")
-        test_path  = os.path.join(root_data, "listops/test.tsv")
+        val_path = os.path.join(root_data, "listops/val.tsv")
+        test_path = os.path.join(root_data, "listops/test.tsv")
 
         train_df = pd.read_csv(train_path, sep="\t", header=0)
-        test_df  = pd.read_csv(test_path, sep="\t", header=0)
+        val_df = pd.read_csv(val_path,   sep="\t", header=0)
+        test_df = pd.read_csv(test_path,  sep="\t", header=0)
 
-        # Costruzione vocabolario
         unique_tokens = set()
-        for seq in list(train_df.iloc[:, 0].values) + list(test_df.iloc[:, 0].values):
-            unique_tokens.update(seq.split())
+        for df in (train_df, val_df, test_df):
+            for seq in df.iloc[:, 0].values:
+                unique_tokens.update(seq.split())
 
-        # Aggiunta token PAD = 0
         self.vocab = {"<PAD>": 0}
         for idx, tok in enumerate(sorted(unique_tokens), start=1):
             self.vocab[tok] = idx
@@ -52,26 +53,18 @@ class LRAListOps(DatasetInterface):
         self.vocab_size = len(self.vocab)
         self.labels = list(range(10))
 
-        # Determinazione lunghezza massima delle sequenze
-        max_len_train = max(len(seq.split()) for seq in train_df.iloc[:, 0].values)
-        max_len_test  = max(len(seq.split()) for seq in test_df.iloc[:, 0].values)
-        max_len = max(max_len_train, max_len_test)
-
-        # Creazione dataset lazy
-        full_train = ListOpsLazy(train_path, self.vocab, max_len)
-        test_set   = ListOpsLazy(test_path, self.vocab, max_len)
-
-        # Suddivisione train/val
-        N = len(full_train)
-        val_size = int(valsplit * N)
-        train_size = N - val_size
-
-        self.trainset, self.valset = random_split(
-            full_train, [train_size, val_size]
+        # Lunghezza massima di sequenza su tutti gli split (per il padding)
+        max_len = max(
+            max(len(seq.split()) for seq in train_df.iloc[:, 0].values),
+            max(len(seq.split()) for seq in val_df.iloc[:, 0].values),
+            max(len(seq.split()) for seq in test_df.iloc[:, 0].values),
         )
 
-        self.testset = test_set
+        # Tre dataset separati: niente più random_split
+        self.trainset = ListOpsLazy(train_path, self.vocab, max_len)
+        self.valset = ListOpsLazy(val_path,   self.vocab, max_len)
+        self.testset = ListOpsLazy(test_path,  self.vocab, max_len)
+
         self.input_shape = (batch_size, max_len)
 
-        print(f"LRAListOps: {len(self.trainset)} train, {len(self.valset)} val, {len(self.testset)} test, seq_len={max_len}, vocab_size={self.vocab_size}"
-        )
+        print(f"LRAListOps: {len(self.trainset)} train, {len(self.valset)} val, {len(self.testset)} test, seq_len={max_len}, vocab_size={self.vocab_size}")
