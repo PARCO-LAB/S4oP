@@ -40,7 +40,17 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         vocab_size = 12
         seq_len = 4096
         num_classes = 6
-    
+    elif dataset_name == "image":
+        vocab_size = 256
+        seq_len = 1024
+        num_classes = 10
+    elif dataset_name == "retrieval":
+        vocab_size = 128
+        seq_len = 4096
+        num_classes = 2
+    else:
+        raise FileNotFoundError(f"Dataset {dataset_name} does not exist.")
+
     # Se il modello non esiste
     if (not os.path.exists(model_path)) and (pruned_model_name is None):
         raise FileNotFoundError(f"Model path {model_path} does not exist.")
@@ -63,7 +73,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             dataset_name=dataset_name,
             vocab_size=vocab_size,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
-            d_state=64,
+            d_state=64 if model_name != "mamba" else 128,
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
             num_classes=num_classes,
@@ -110,7 +120,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             dataset_name=dataset_name,
             vocab_size=vocab_size,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
-            d_state=64,
+            d_state=64 if model_name != "mamba" else 128,
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
             num_classes=num_classes,

@@ -8,7 +8,7 @@ from models_config import *
 from models_datasets_and_profiling_implementation.model import ModelTrain, ModelTest, ModelInfo, ModelProfile
 from models_datasets_and_profiling_implementation.model.utils import set_benchmark, set_seed, setup_optimizer
 
-set_seed(42)
+set_seed(123)
 set_benchmark(False)
 
 def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
@@ -26,6 +26,9 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
     if (not os.path.exists(model_path)) and (pruned_model_name is None):
 
         # Creazione modello
+        H = config[f"{model_name}"][f"{dataset_name}"]["features"]
+        if model_name == "mamba":
+            H = 2 * H
         model_train = ModelTrain.from_scratch(
             model_name=model_name, 
             dataset_name=dataset_name, 
@@ -33,16 +36,16 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             valsplit=config["val_split"], 
             num_workers=config["num_workers"], 
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
-            d_state=64,
+            d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
             norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
             pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"],
-            active_idx_layers=[list(range(config[f"{model_name}"][f"{dataset_name}"]["features"])) for _ in range(config[f"{model_name}"][f"{dataset_name}"]["depth"])]
+            active_idx_layers=[list(range(H)) for _ in range(config[f"{model_name}"][f"{dataset_name}"]["depth"])]
         )
         print(f"\nModello: {model_name}, Dataset: {dataset_name}")
         print(model_train.model)
-        criterion = torch.nn.CrossEntropyLoss() if dataset_name in ["imdb", "listops", "pathfinder"] else torch.nn.BCEWithLogitsLoss()
+        criterion = torch.nn.CrossEntropyLoss() if dataset_name in ["imdb", "listops", "pathfinder", "image", "retrieval"] else torch.nn.BCEWithLogitsLoss()
         optimizer, scheduler = setup_optimizer(
             model_train.model,
             lr=config[f"{model_name}"][f"{dataset_name}"]["lr"],
@@ -52,7 +55,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
 
         print(f"\nStarting training for {config[f'{model_name}'][f'{dataset_name}']['epochs']} epochs with batch size {config[f'{model_name}'][f'{dataset_name}']['batch_size']}...")
         # Training
-        model_train.run(optimizer, scheduler, criterion, config[f"{model_name}"][f"{dataset_name}"]["epochs"], checkpoints_folder=os.path.join(".", f"{checkpoints_folder}"), is_pruned=False)
+        model_train.run(optimizer, scheduler, criterion, config[f"{model_name}"][f"{dataset_name}"]["epochs"], checkpoints_folder=os.path.join(".", f"{checkpoints_folder}"), is_pruned=False, patience=config[f"{model_name}"][f"{dataset_name}"]["patience"])
 
         # Testing
         model_test = ModelTest.from_pth(model_path=model_path, 
@@ -60,7 +63,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
                                         valsplit=config["val_split"],
                                         num_workers=config["num_workers"], 
                                         d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
-                                        d_state=64,
+                                        d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
                                         depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
                                         dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
                                         norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
@@ -103,7 +106,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
                                         valsplit=config["val_split"],
                                         num_workers=config["num_workers"], 
                                         d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
-                                        d_state=64,
+                                        d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
                                         depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
                                         dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
                                         norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
@@ -144,7 +147,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
                                         valsplit=config["val_split"],
                                         num_workers=config["num_workers"], 
                                         d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
-                                        d_state=64,
+                                        d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
                                         depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
                                         dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
                                         norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],

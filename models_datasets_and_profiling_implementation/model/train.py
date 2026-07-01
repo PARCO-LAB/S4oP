@@ -4,6 +4,20 @@ from .net import NetFactory
 from ..dataset import DatasetFactory
 from . import utils
 
+@torch.no_grad()
+def grad_report(model):
+    total = 0.0
+    rows = []
+    for name, p in model.named_parameters():
+        if p.grad is None:
+            rows.append((name, None))
+            continue
+        n = p.grad.detach().norm(2).item()
+        total += n ** 2
+        rows.append((name, n))
+    total = total ** 0.5
+    return total, rows
+
 class ModelTrain: 
     def __init__(self, model, dataset):
         self.model_name = model.name
@@ -66,6 +80,7 @@ class ModelTrain:
             outputs = self.model(inputs)
             loss = loss_criterion(outputs, labels)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             optimizer.step()
 
             batch_size = labels.size(0)
@@ -180,7 +195,7 @@ class ModelTrain:
                 return val_accuracy, val_loss
         if self.dataset_name == "ecg":
             f1 = sum(f1_list_train) / len(f1_list_train)
-            return val_accuracy, f1
+            return val_accuracy, f1 * 100
         else:
             return val_accuracy
 

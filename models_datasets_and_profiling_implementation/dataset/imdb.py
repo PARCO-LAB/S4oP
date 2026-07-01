@@ -11,8 +11,8 @@ class IMDB(DatasetInterface):
 
         # Carica dataset IMDB
         tokenizer_name="bert-base-uncased"
-        raw_train = load_dataset("imdb", split="train")
-        raw_test  = load_dataset("imdb", split="test")
+        raw_train = load_dataset("stanfordnlp/imdb", split="train")
+        raw_test  = load_dataset("stanfordnlp/imdb", split="test")
 
         # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)

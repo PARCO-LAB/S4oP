@@ -32,7 +32,6 @@ class PathfinderLazy(Dataset):
                 parts = line.split()
                 if len(parts) < 4:
                     continue
-                # parts[0]='imgs/<n>', parts[1]='sample_*.png', parts[3]=label
                 img_path = os.path.join(root_data, parts[0], parts[1])
                 try:
                     label = int(parts[3])
@@ -49,21 +48,30 @@ class PathfinderLazy(Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        img_path, label = self.samples[idx]
-        img = Image.open(img_path).convert("RGB")
-        img_tensor = self.transform(img)  # [C, H, W]
-        C, H, W = img_tensor.shape
-        # sequenza [L, C] = [H*W, C]
-        img_tensor = img_tensor.permute(1, 2, 0).contiguous().view(H * W, C)
-        return img_tensor, torch.tensor(label, dtype=torch.long)
-
+        try:
+            img_path, label = self.samples[idx]
+            img = Image.open(img_path).convert("L")
+            img_tensor = self.transform(img)  # [C, H, W]
+            C, H, W = img_tensor.shape
+            # sequenza [L, C] = [H*W, C]
+            img_tensor = img_tensor.permute(1, 2, 0).contiguous().view(H * W, C)
+            return img_tensor, torch.tensor(label, dtype=torch.long)
+        except Exception as e:
+            idx += 1
+            img_path, label = self.samples[idx]
+            img = Image.open(img_path).convert("L")
+            img_tensor = self.transform(img)  # [C, H, W]
+            C, H, W = img_tensor.shape
+            # sequenza [L, C] = [H*W, C]
+            img_tensor = img_tensor.permute(1, 2, 0).contiguous().view(H * W, C)
+            return img_tensor, torch.tensor(label, dtype=torch.long)
 
 class LRAPathfinder(DatasetInterface):
     def __init__(self, batch_size, valsplit, num_workers):
         super().__init__("pathfinder", batch_size, num_workers)
 
         # Percorso base (relativo: lanciare il training dalla cartella S4oP/)
-        root_data = "data/pathfinder"
+        root_data = "../pathfinder"
         imgs_dir = os.path.join(root_data, "imgs")
         metadata_dir = os.path.join(root_data, "metadata")
 

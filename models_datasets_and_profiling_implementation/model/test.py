@@ -5,7 +5,6 @@ from ..dataset import DatasetFactory
 from .net import NetFactory
 from .utils import *
 
-
 class ModelTest: 
     def __init__(self, model, dataset):
         self.model_name = model.name
@@ -70,7 +69,7 @@ class ModelTest:
         self.model_train.valloader = self.model_train.dataset.get_testloader()
         if self.dataset_name == "ecg":
             accuracy, f1 = self.test_step()
-            print("[Test] test_accuracy: {:.3f}, test_f1: {:.3f}".format(accuracy, f1 * 100))
+            print("[Test] test_accuracy: {:.3f}, test_f1: {:.3f}".format(accuracy, f1))
             return f1
         else:
             accuracy = self.test_step()

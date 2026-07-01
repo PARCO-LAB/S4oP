@@ -89,8 +89,10 @@ class ModelInfo:
 
         if self.dataset_name in ["listops", "imdb"]:
             self.input_shape = (batch_size, seq_len)
+        elif dataset_name == "retrieval":
+            self.input_shape = (batch_size, 2, seq_len)
         else:
-            self.input_shape = (batch_size, seq_len, vocab_size)
+            self.input_shape = (batch_size, seq_len, 1)
 
         self.augment()
 
@@ -100,7 +102,12 @@ class ModelInfo:
             self.seq_len = seq_len
         if batch_size is not None:
             self.batch_size = batch_size
-        self.input_shape = (self.batch_size, self.seq_len)
+        if self.dataset_name == "retrieval":
+            self.input_shape = (batch_size, 2, seq_len)
+        elif self.dataset_name in ["listops", "imdb"]:
+            self.input_shape = (batch_size, seq_len)
+        else:
+            self.input_shape = (batch_size, seq_len, 1) if self.dataset_name == "image" else (batch_size, seq_len, 12)
         self.augment()
 
 
@@ -109,7 +116,7 @@ class ModelInfo:
         augment_names(self.model)
         self.model.childs = augment_childs(self.model)
 
-        if self.dataset_name in ["listops", "imdb"]:
+        if self.dataset_name in ["listops", "imdb", "retrieval"]:
             input_sample = torch.randint(
                 0, self.vocab_size, self.input_shape, dtype=torch.long
             ).to(utils.get_device())
@@ -120,7 +127,10 @@ class ModelInfo:
     
 
     def torchviz(self, output_dir="."):
-        input = torch.randint(0, self.vocab_size, self.input_shape, dtype=torch.long).to(utils.get_device())
+        if self.dataset_name in ["listops", "imdb", "retrieval"]:
+            input = torch.randint(0, self.vocab_size, self.input_shape, dtype=torch.long).to(utils.get_device())
+        else:
+            input = torch.randn(*self.input_shape).to(utils.get_device())
         output = self.model(input)
         model_graph = make_dot(output, params=dict(self.model.named_parameters()))
         model_graph.render(
@@ -128,15 +138,25 @@ class ModelInfo:
 
     @torch.no_grad()
     def torchinfo(self, output_dir, name):
-        info = torchinfo.summary( 
-            self.model, 
-            input_size=(self.batch_size, self.seq_len) if self.dataset_name in ["listops", "imdb"] else (self.batch_size, self.seq_len, self.vocab_size),
-            col_names=("input_size", "output_size", "num_params", "mult_adds"), 
-            verbose=0, 
-            dtypes=[torch.long] if self.dataset_name in ["listops", "imdb"] else [torch.float],)
+        if self.dataset_name == "retrieval":
+            input_size = (self.batch_size, 2, self.seq_len)
+            dtypes = [torch.long]
+        elif self.dataset_name in ["listops", "imdb"]:
+            input_size = (self.batch_size, self.seq_len)
+            dtypes = [torch.long]
+        else:
+            input_size = (self.batch_size, self.seq_len, 1) if self.dataset_name == "image" else (self.batch_size, self.seq_len, 12)
+            dtypes = [torch.float]
 
+        info = torchinfo.summary(
+            self.model,
+            input_size=input_size,
+            col_names=("input_size", "output_size", "num_params", "mult_adds"),
+            verbose=0,
+            dtypes=dtypes,
+        )
         with open(os.path.join(output_dir, f"{name}_torchinfo.txt"), "w") as text_file:
-                text_file.write(str(info))
+            text_file.write(str(info))
 
     @torch.no_grad()
     def torchsummary(self, output_dir=".", name=None):
@@ -162,7 +182,7 @@ class ModelInfo:
         else: 
             input_shape = search_module.input_shape
             
-        if self.dataset_name in ["listops", "imdb"]:
+        if self.dataset_name in ["listops", "imdb", "retrieval"]:
             example_input = torch.randint(0, self.vocab_size, input_shape, dtype=torch.long).to(utils.get_device())
         else:
             example_input = torch.randn(input_shape).to(utils.get_device())
