@@ -1,21 +1,21 @@
 #!/bin/bash
-#SBATCH --job-name=s4oP_test
-#SBATCH --nodelist=node005     
+#SBATCH --job-name=test
+#SBATCH --nodelist=node005   
 #SBATCH --partition=gpuRTX     
 #SBATCH --gres=gpu:1  
 #SBATCH --cpus-per-task=16 
 #SBATCH --mem=128G
-#SBATCH --time=04:00:00      
-#SBATCH --output=logs/%x_%j.out   
-#SBATCH --error=logs/%x_%j.err    
+#SBATCH --time=96:00:00      
+#SBATCH --output=test/%x_%j.out   
+#SBATCH --error=test/%x_%j.err    
 
 set -euo pipefail
 
-MODEL="s4d"
-DATASET="listops"
+MODEL="mamba"
+DATASET="image"
 CKPT_FOLDER="checkpoints"
 CKPT_PRUNED="checkpoints_pruned"
-mkdir -p logs
+mkdir -p test
 module load cuda/12.8 
 
 echo "==================== INFO NODO ===================="
@@ -35,8 +35,8 @@ if torch.cuda.is_available():
 PYEOF
 echo "==================================================="
 
-#echo ">>> python3 starting_model.py -m ${MODEL} -d ${DATASET} -b ${CKPT_FOLDER} -c ${CKPT_PRUNED}"
-#srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -b "${CKPT_FOLDER}" -c "${CKPT_PRUNED}"
+#echo ">>> python3 exec_pruning.py -m ${MODEL} -d ${DATASET} -b ${CKPT_FOLDER} -c ${CKPT_PRUNED}"
+#srun python3 exec_pruning.py -m "${MODEL}" -d "${DATASET}" -b "${CKPT_FOLDER}" -c "${CKPT_PRUNED}"
 echo ">>> python3 starting_model.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
 srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
 

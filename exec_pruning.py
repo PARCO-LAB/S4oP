@@ -183,6 +183,50 @@ def convert_layer_s4(masked_layer, structural_layer, local_idx=None):
         masked_layer.output_linear.state_dict()
     )
 
+def convert_layer_mamba(masked_layer, structural_layer, local_idx=None):
+    if local_idx is None:
+        structural_layer.load_state_dict(masked_layer.state_dict())
+        return
+
+    device = masked_layer.in_proj.weight.device
+    idx = torch.as_tensor(local_idx, dtype=torch.long, device=device)
+    d_inner_base = masked_layer.d_inner
+
+    # in_proj: righe idx (metà x) + (d_inner_base + idx) (metà z)
+    rows_in = torch.cat([idx, d_inner_base + idx], dim=0)
+    structural_layer.in_proj.weight.data.copy_(
+        masked_layer.in_proj.weight.data.index_select(0, rows_in))
+    if masked_layer.in_proj.bias is not None:
+        structural_layer.in_proj.bias.data.copy_(
+            masked_layer.in_proj.bias.data.index_select(0, rows_in))
+
+    # conv1d depthwise: canali idx
+    structural_layer.conv1d.weight.data.copy_(
+        masked_layer.conv1d.weight.data.index_select(0, idx))
+    if masked_layer.conv1d.bias is not None:
+        structural_layer.conv1d.bias.data.copy_(
+            masked_layer.conv1d.bias.data.index_select(0, idx))
+
+    # x_proj: colonne idx (l'input è d_inner)
+    structural_layer.x_proj.weight.data.copy_(
+        masked_layer.x_proj.weight.data.index_select(1, idx))
+
+    # dt_proj: righe idx (l'output è d_inner) + bias
+    structural_layer.dt_proj.weight.data.copy_(
+        masked_layer.dt_proj.weight.data.index_select(0, idx))
+    structural_layer.dt_proj.bias.data.copy_(
+        masked_layer.dt_proj.bias.data.index_select(0, idx))
+
+    # A_log [d_inner, d_state] e D [d_inner]: righe idx
+    structural_layer.A_log.data.copy_(masked_layer.A_log.data.index_select(0, idx))
+    structural_layer.D.data.copy_(masked_layer.D.data.index_select(0, idx))
+
+    # out_proj: colonne idx (l'input è d_inner); l'output resta d_model (bias intero)
+    structural_layer.out_proj.weight.data.copy_(
+        masked_layer.out_proj.weight.data.index_select(1, idx))
+    if masked_layer.out_proj.bias is not None:
+        structural_layer.out_proj.bias.data.copy_(masked_layer.out_proj.bias.data)
+
 def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_folder):
 
     config = MODELS_CONFIG
@@ -197,6 +241,8 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
     model_checkpoint = f"./{base_model_folder}/{model_name}_{dataset_name}_best.pth"
 
     H = config[model_name][dataset_name]["features"]
+    if model_name == "mamba":
+        H = 2 * H   # d_inner = expand * d_model (expand=2)
     n_layers = config[model_name][dataset_name]["depth"]
 
     accuracies = {}
@@ -218,7 +264,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
             valsplit=config["val_split"],
             num_workers=config["num_workers"],
             d_model=config[model_name][dataset_name]["features"],
-            d_state=64,
+            d_state=config[model_name][dataset_name]["d_state"],
             depth=config[model_name][dataset_name]["depth"],
             dropout=config[model_name][dataset_name]["dropout"],
             norm=config[model_name][dataset_name]["norm"],
@@ -252,7 +298,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
                 dataset_name=dataset_name,
                 vocab_size=prev_model.dataset.vocab_size if hasattr(prev_model.dataset, 'vocab_size') else prev_model.dataset.input_shape[-1],
                 d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
-                d_state=64,
+                d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
                 depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
                 dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
                 num_classes=prev_model.dataset.get_output_shape()[-1],
@@ -272,6 +318,11 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
                     mapping = {int(g):i for i,g in enumerate(prev_active_idx[i])}
                     local_idx = [mapping[int(g)] for g in active_idx[i]]
                     convert_layer_s4d(lm, ls, local_idx)
+            elif model_name == "mamba":
+                for i, (lm, ls) in enumerate(zip(prev_model.model.mamba_layers, model.mamba_layers)):
+                    mapping = {int(g):j for j,g in enumerate(prev_active_idx[i])}
+                    local_idx = [mapping[int(g)] for g in active_idx[i]]
+                    convert_layer_mamba(lm, ls, local_idx)
             else:
                 for i, (lm, ls) in enumerate(zip(prev_model.model.s4_layers, model.s4_layers)):
                     mapping = {int(g):i for i,g in enumerate(prev_active_idx[i])}
@@ -282,16 +333,26 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
             for nm, ns in zip(prev_model.model.norms, model.norms):
                 ns.load_state_dict(nm.state_dict())
 
+            if model_name == "mamba" and hasattr(model, "norm_f"):
+                model.norm_f.load_state_dict(prev_model.model.norm_f.state_dict())
+
             # === COPY CLASSIFIER ===
-            model.fc.load_state_dict(
-                prev_model.model.fc.state_dict()
-            )
+            if model_name == "mamba" and hasattr(model, "fc"):
+                model.fc.load_state_dict(
+                    prev_model.model.fc.state_dict()
+                )
+
+            # === COPY MLP MATCH FOR RETRIEVAL DATASET ===
+            if model_name == "mamba" and hasattr(model, "match"):
+                model.match.load_state_dict(
+                    prev_model.model.match.state_dict()
+                )
 
             model_test = ModelTest(model=model, dataset=prev_model.dataset)
             model = model_test.model
             dataset = model_test.dataset
 
-            """ # Fine-tuning
+            # Fine-tuning
             trainer = FineTuning(
                 model=model,
                 dataset=dataset,
@@ -301,7 +362,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
                 checkpoint_folder=os.path.join(f"./{checkpoint_folder}", f"{model_name}_{dataset_name}_seed{seed}_pruned_{int(perc*100)}%.pth"),
                 patience=pc["early_stopping"]
             )
-            trainer.run() """
+            trainer.run()
 
             acc = model_test.run()
 
@@ -319,8 +380,9 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
 
             t2 = time.time()
             timers[perc][seed] = t2 - t1
+            
             # Pulizia memoria
-            """ del trainer """
+            del trainer
             del model
             del model_test
             del dataset

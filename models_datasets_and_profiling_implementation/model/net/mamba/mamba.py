@@ -31,7 +31,7 @@ class Mamba(nn.Module):
         self.active_idx_layers = active_idx_layers
         self.dataset_name = dataset_name
 
-        if dataset_name in ["pathfinder", "ecg"]:
+        if dataset_name in ["pathfinder", "ecg", "image"]:
             # input continuo -> embedding lineare: [B, L, C] -> [B, L, H]
             self.embedding = nn.Linear(vocab_size, d_model)
         else:
@@ -42,13 +42,14 @@ class Mamba(nn.Module):
         self.norms = nn.ModuleList()
         self.dropouts = nn.ModuleList()
 
-        for _ in range(depth):
+        for i in range(depth):
             self.mamba_layers.append(
                 MambaBlock(
                     d_model=d_model,
                     d_state=d_state,
                     d_conv=d_conv,
                     expand=expand,
+                    active_idx=active_idx_layers[i] if active_idx_layers is not None else None
                 )
             )
             if norm.upper() == "LN":
@@ -59,6 +60,8 @@ class Mamba(nn.Module):
                 raise ValueError(f"Norma non supportata: {norm}")
 
             self.dropouts.append(dropout_fn(dropout))
+
+        self.norm_f = nn.LayerNorm(d_model)
 
         self.fc = nn.Linear(d_model, num_classes)
 
@@ -72,8 +75,10 @@ class Mamba(nn.Module):
             z = norm(z)
         return z
 
-    def forward(self, x):
+    def encode(self, x):
         # Input: [B, L] (token) oppure [B, L, C] (pathfinder/ecg)
+        has_padding = (x.dim() == 2) and (self.dataset_name not in ["image"])
+        pad_mask = (x != 0) if has_padding else None
         x = self.embedding(x)        # -> [B, L, H]
 
         for layer, norm, dropout in zip(self.mamba_layers, self.norms, self.dropouts):
@@ -88,6 +93,31 @@ class Mamba(nn.Module):
             if not self.pre_norm:
                 x = self._apply_norm(norm, x)
 
-        x = x.mean(dim=1)            # pooling sulla sequenza -> [B, H]
-        out = self.fc(x)            # -> [B, num_classes]
-        return out
+        # Pooling mean
+        x = self.norm_f(x)           # normalizzazione finale -> [B, L, H]
+        if pad_mask is not None:
+            m = pad_mask.unsqueeze(-1).to(x.dtype)            # [B, L, 1]
+            x = (x * m).sum(dim=1) / m.sum(dim=1).clamp(min=1.0)
+        else:
+            x = x.mean(dim=1)        # [B, H]
+
+        return x
+
+    def forward(self, x):                      # classificazione normale
+        return self.fc(self.encode(x))
+
+class RetrievalMamba(Mamba):
+    def __init__(self, *args, d_model, num_classes=2, **kwargs):
+        super().__init__(*args, d_model=d_model, num_classes=num_classes, **kwargs)
+        H = d_model
+        del self.fc 
+        self.match = torch.nn.Sequential(
+            torch.nn.Linear(4 * H, H), torch.nn.GELU(),
+            torch.nn.Linear(H, num_classes),
+        )
+
+    def forward(self, x):                  # x: [B, 2, L]
+        d0, d1 = x[:, 0, :], x[:, 1, :]    # i due documenti
+        v0, v1 = self.encode(d0), self.encode(d1)          # encoder CONDIVISO
+        feat = torch.cat([v0, v1, (v0 - v1).abs(), v0 * v1], dim=-1)   # [B, 4H]
+        return self.match(feat)            # [B, num_classes]

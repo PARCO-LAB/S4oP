@@ -4,39 +4,38 @@ import signal
 import numpy as np
 import gc
 import torch.optim as optim
+from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 
-def setup_optimizer(model, lr, weight_decay, epochs):
-    """
-    Setup dell'optimizer per S4 coerente con la repo ufficiale.
-
-    - Parametri speciali (A, B, C, dt) hanno _optim settato
-    e usano lr più piccolo (~1e-3) e no weight decay.
-    - Tutti gli altri parametri usano lr più grande (es. 1e-2) e weight decay.
-    """
-
-    # Tutti i parametri del modello
+def setup_optimizer(model, lr, weight_decay, epochs, warmup_epochs=5):
     all_parameters = list(model.parameters())
 
-    # Parametri generali (senza attributo _optim)
-    base_params = [p for p in all_parameters if not hasattr(p, "_optim")]
+    # Speciali S4 (hanno _optim): lr/wd custom definiti dal layer
+    special_s4 = [p for p in all_parameters if hasattr(p, "_optim")]
+    # Mamba da NON decadere (A_log, D: hanno _no_weight_decay)
+    no_decay = [p for p in all_parameters
+                if not hasattr(p, "_optim") and getattr(p, "_no_weight_decay", False)]
+    # Tutto il resto: weight decay normale
+    base_params = [p for p in all_parameters
+                   if not hasattr(p, "_optim") and not getattr(p, "_no_weight_decay", False)]
+
     optimizer = optim.AdamW(base_params, lr=lr, weight_decay=weight_decay)
 
-    # Raggruppa i parametri speciali (_optim)
-    hps = [getattr(p, "_optim") for p in all_parameters if hasattr(p, "_optim")]
-    # Elimina duplicati mantenendo ordine
-    hps = [
-        dict(s) for s in sorted(
-            list(dict.fromkeys(frozenset(hp.items()) for hp in hps))
-        )
-    ]
+    # Gruppo no-weight-decay (A_log/D di Mamba) -> stesso lr, wd=0
+    if no_decay:
+        optimizer.add_param_group({"params": no_decay, "weight_decay": 0.0})
 
-    # Aggiunge ogni gruppo speciale all'optimizer
+    # Gruppi speciali S4 (_optim)
+    hps = [getattr(p, "_optim") for p in special_s4]
+    hps = [dict(s) for s in sorted(list(dict.fromkeys(frozenset(hp.items()) for hp in hps)))]
     for hp in hps:
-        params = [p for p in all_parameters if getattr(p, "_optim", None) == hp]
+        params = [p for p in special_s4 if getattr(p, "_optim", None) == hp]
         optimizer.add_param_group({"params": params, **hp})
 
-    # Scheduler: CosineAnnealingLR (come nella repo ufficiale)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    # Scheduler: warmup lineare + cosine
+    warmup_epochs = max(1, min(warmup_epochs, int(epochs) // 10))
+    warmup = LinearLR(optimizer, start_factor=0.01, total_iters=warmup_epochs)
+    cosine = CosineAnnealingLR(optimizer, T_max=max(1, int(epochs) - warmup_epochs))
+    scheduler = SequentialLR(optimizer, schedulers=[warmup, cosine], milestones=[warmup_epochs])
 
     return optimizer, scheduler
 

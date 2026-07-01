@@ -3,6 +3,7 @@ MODELS_CONFIG = {
     {
         "ecg":
         {
+            "d_state": 64,
             "depth": 4,
             "features": 128,
             "norm": "LN",
@@ -16,6 +17,7 @@ MODELS_CONFIG = {
         },
         "listops":
         {
+            "d_state": 64,
             "depth": 8,
             "features": 128,
             "norm": "BN",
@@ -29,6 +31,7 @@ MODELS_CONFIG = {
         },
         "imdb":
         {
+            "d_state": 64,
             "depth": 6,
             "features": 256,
             "norm": "BN",
@@ -42,6 +45,7 @@ MODELS_CONFIG = {
         },
         "pathfinder":
         {
+            "d_state": 64,
             "depth": 6,
             "features": 256,
             "norm": "BN",
@@ -58,6 +62,7 @@ MODELS_CONFIG = {
     {
         "ecg":
         {
+            "d_state": 64,
             "depth": 4,
             "features": 128,
             "norm": "LN",
@@ -71,6 +76,7 @@ MODELS_CONFIG = {
         },
         "listops":
         {
+            "d_state": 64,
             "depth": 6,
             "features": 128,
             "norm": "BN",
@@ -84,6 +90,7 @@ MODELS_CONFIG = {
         },
         "imdb":
         {
+            "d_state": 64,
             "depth": 4,
             "features": 64,
             "norm": "BN",
@@ -97,6 +104,7 @@ MODELS_CONFIG = {
         },
         "pathfinder":
         {
+            "d_state": 64,
             "depth": 6,
             "features": 256,
             "norm": "BN",
@@ -111,18 +119,89 @@ MODELS_CONFIG = {
     },
     "mamba":
     {
+        "ecg":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.2,
+            "lr": 0.001,
+            "batch_size": 16,
+            "epochs": 100,
+            "wd": 0.01,
+            "patience": 50
+        },
         "listops":
         {
-            "depth": 3,
-            "features": 16,
-            "norm": "BN",
-            "pre-norm": False,
+            "d_state": 64,
+            "depth": 12,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.3,
+            "lr": 0.0001,
+            "batch_size": 32,
+            "epochs": 100,
+            "wd": 0.01,
+            "patience": 20
+        },
+        "imdb":
+        {
+            "d_state": 64,
+            "depth": 4,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.001,
+            "batch_size": 32,
+            "epochs": 32,
+            "wd": 0.01,
+            "patience": 4
+        },
+        "pathfinder":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.3,
+            "lr": 0.0001,
+            "batch_size": 32,
+            "epochs": 100,
+            "wd": 0.01,
+            "patience": 20
+        },
+        "image":
+        {
+            "d_state": 64,
+            "depth": 12,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.3,
+            "lr": 0.0001,
+            "batch_size": 32,
+            "epochs": 200,
+            "wd": 0.01,
+            "patience": 20
+        },
+        "retrieval":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
             "dropout": 0.0,
-            "lr": 0.01,
-            "batch_size": 50,
+            "lr": 0.0001,
+            "batch_size": 16,
             "epochs": 50,
             "wd": 0.01,
-            "patience": 5
+            "patience": 10
         },
     },
     "num_workers": 4,

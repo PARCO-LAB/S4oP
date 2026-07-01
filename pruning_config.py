@@ -80,9 +80,9 @@ PRUNING_CONFIG = {
         "imdb":
         {
             "finetune_epochs": 4,
-            "lr": 1e-5,
+            "lr": 1e-4,
             "weight_decay": 1e-5,
-            "early_stopping": 1
+            "early_stopping": 2
         },
         "ecg":
         {
@@ -90,8 +90,22 @@ PRUNING_CONFIG = {
             "lr": 1e-4,
             "weight_decay": 1e-5,
             "early_stopping": 6
+        },
+        "image":
+        {
+            "finetune_epochs": 5,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 2
+        },
+        "retrieval":
+        {
+            "finetune_epochs": 6,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 2
         }
     },
-    "perc": [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.7],
-    "seeds": [42]
+    "perc": [0.1, 0.3, 0.5, 0.7, 0.9],
+    "seeds": [7, 42, 123, 2024, 31650]
 }
