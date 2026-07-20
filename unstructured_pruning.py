@@ -25,7 +25,7 @@ def cubic_sparsity(epoch, ramp_epochs, s_final, start_frac=0.25):
 class MambaPruner:
     """Maschere binarie (1 = tengo il peso, 0 = lo pruno)."""
 
-    def __init__(self, model, alpha=1.0, include_embeddings=True, prune_A_log=False):
+    def __init__(self, model, alpha=1.0, include_embeddings=False, prune_A_log=False):
         self.model = model
         self.alpha = alpha
         self.weights = {} # nome -> parametro prunabile
@@ -90,11 +90,6 @@ class MambaPruner:
 
         # Classifica globale -> soglia di taglio
         flat = torch.cat([s.flatten().cpu() for s in scores.values()])
-        # DIAGNOSTICA temporanea
-        n_zero = (flat == 0).sum().item()
-        print(f"  [diag] target={target_sparsity:.3f} | tot pesi={flat.numel()} "
-            f"| score==0: {n_zero} ({100*n_zero/flat.numel():.1f}%) "
-            f"| k={int(target_sparsity*flat.numel())}")
 
         k = max(1, min(int(target_sparsity * flat.numel()), flat.numel() - 1))
         threshold = torch.kthvalue(flat, k).values.to(device) # Prende il k-esimo valore più piccolo
@@ -107,7 +102,7 @@ class MambaPruner:
 
     @torch.no_grad()
     def sparsity_per_group(self):
-        """Sparsita' SSM vs proiezioni lineari (verifica l'allocazione Tab. 3)."""
+        """Sparsita' SSM vs proiezioni lineari"""
         groups = {"ssm": [0, 0], "linear": [0, 0]}
         ssm_tags = ("x_proj", "dt_proj", "conv1d", "A_log")
         for name, m in self.masks.items():
@@ -166,12 +161,10 @@ class PruningFineTuning:
             scheduler.step()
 
             grp = self.pruner.sparsity_per_group()
-            print(f"[Epoch {epoch+1}] loss {val_loss:.3f} | val {metric:.3f} "
-                  f"| sparsity {sp:.3f} (ssm {grp['ssm']:.2f} / lin {grp['linear']:.2f})")
+            print(f"[Epoch {epoch+1}] val_loss: {val_loss:.3f} | metric: {metric:.3f} | sparsity: {sp:.3f} (ssm {grp['ssm']:.2f} / lin {grp['linear']:.2f})")
 
             # considera il salvataggio solo quando sei alla sparsità target
             at_target = sp >= self.s_final - 1e-6
-            print(f"at_target={at_target}, sp={sp}, metric={metric}, best={best}")
             if at_target and metric > best:
                 best = metric
                 torch.save({
@@ -203,8 +196,8 @@ def build_args():
     parser.add_argument("--start_frac", type=float, default=0.0, help="Quando inizia il pruning (frazione della rampa)")
     parser.add_argument("--alpha", type=float, default=1.0)
     parser.add_argument("--importance_batches", type=int, default=5)
-    parser.add_argument("--prune_A_log", action="store_true", help="Includi A_log nel pruning ")
-    parser.add_argument("--test", action="store_true", help="Testa il modello potato a fine pruning")
+    parser.add_argument("--prune_A_log", action="store_true", default=True, help="Includi A_log nel pruning ")
+    parser.add_argument("--test", action="store_true", default=True, help="Testa il modello potato a fine pruning")
     return parser.parse_args()
 
 def main():
@@ -212,6 +205,8 @@ def main():
     config = MODELS_CONFIG
     pruning_config = PRUNING_CONFIG
     perc = pruning_config["perc"]
+
+    accuracies = {}
 
     args = build_args()
 
@@ -242,9 +237,6 @@ def main():
                 pre_norm=config["mamba"][args.dataset_name]["pre-norm"]
             )
         model, dataset = model.model, model.dataset
-        for n, param in model.named_parameters():
-            if param.dim() >= 2:
-                print(n, tuple(param.shape), "grad?" , param.requires_grad)
 
         # Setup iperparametri di pruning
         lr = pruning_config["mamba"][dataset.name]["lr"]
@@ -253,7 +245,7 @@ def main():
         epochs = pruning_config["mamba"][dataset.name]["finetune_epochs"] * (i+1)
         ramp_epochs = max(1, int(epochs * 0.4))
         print(f"Pruning parameters: lr={lr}, lr_min={lr_min}, weight_decay={weight_decay}, epochs={epochs}, ramp_epochs={ramp_epochs}, alpha={args.alpha}, start_frac={args.start_frac}, importance_batches={args.importance_batches}")
-
+        
         job = PruningFineTuning(
             model=model, 
             dataset=dataset,
@@ -273,7 +265,7 @@ def main():
 
         if args.test:
             print("\n--- TEST modello potato ---")
-            ModelTest.from_pth(
+            acc = ModelTest.from_pth(
                 model_path=path,
                 batch_size=config["mamba"][args.dataset_name]["batch_size"],
                 valsplit=config["val_split"],
@@ -285,6 +277,11 @@ def main():
                 norm=config["mamba"][args.dataset_name]["norm"],
                 pre_norm=config["mamba"][args.dataset_name]["pre-norm"]
             ).run()
+            accuracies[p] = acc
+
+    print(f"\n=== ACCURACY MIGLIORI PER OGNI STEP ===")
+    for perc, acc in accuracies.items():
+        print(f"    - Pruning {int(perc*100)}%: {acc:.2f}%.")
 
 if __name__ == "__main__":
     main()

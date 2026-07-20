@@ -10,43 +10,61 @@ class MemoryProfile:
 
     @torch.no_grad()
     def run(self, name, model, get_example_input):
+        MB = 1024 ** 2
         model.eval()
         example_input = get_example_input()
 
         # warm-up
         for _ in range(5):
             _ = model(example_input)
-            
+
         torch.cuda.synchronize()
         torch.cuda.reset_peak_memory_stats()
 
         _ = model(example_input)
         torch.cuda.synchronize()
 
-        params_size, model_params, model_size, model_total_params = self.model_size_MB(model)
+        sizes = self.model_size_MB(model)
 
         self.data[name] = {
-            "peak_allocated_MB": torch.cuda.max_memory_allocated() / 1024**2,
-            "peak_reserved_MB": torch.cuda.max_memory_reserved() / 1024**2,
-            "model_size_params_MB": params_size,
-            "model_params": model_params,
-            "model_size_total_MB": model_size,
-            "model_total_params": model_total_params
+            "peak_allocated_MB": torch.cuda.max_memory_allocated() / MB,
+            "peak_reserved_MB": torch.cuda.max_memory_reserved() / MB,
+            **sizes,
         }
 
     def model_size_MB(self, model):
-        total_bytes_params = 0
-        total_bytes_buffers = 0
-        total_params = 0
-        total_buffers = 0
+        MB = 1024 ** 2
+
+        p_bytes_all = p_bytes_noembed = 0
+        n_params_all = n_params_noembed = 0
         for name, p in model.named_parameters():
-            if name != "embedding.weight" or model.dataset_name != "imdb":
-                total_bytes_params += p.numel() * p.element_size()
-                total_params += p.numel()
-        for b in model.buffers():
-            total_bytes_buffers += b.numel() * b.element_size()
-            total_buffers += b.numel()
-        return total_bytes_params / 1024**2, total_params, (total_bytes_params + total_bytes_buffers) / 1024**2, total_params + total_buffers
+            b = p.numel() * p.element_size()
+            p_bytes_all += b
+            n_params_all += p.numel()
+            if "embedding" not in name:
+                p_bytes_noembed += b
+                n_params_noembed += p.numel()
+
+        buf_bytes = n_buf = 0
+        for buf in model.buffers():
+            buf_bytes += buf.numel() * buf.element_size()
+            n_buf += buf.numel()
+
+        return {
+            # --- SOLO PARAMETRI (no buffer) ---
+            "num_params_with_embedding": n_params_all,
+            "num_params_no_embedding": n_params_noembed,
+
+            # --- PARAMETRI + BUFFER (per la dimensione reale in memoria) ---
+            "num_total_with_embedding": n_params_all + n_buf,
+            "num_total_no_embedding": n_params_noembed + n_buf,
+            "size_with_embedding_MB": (p_bytes_all + buf_bytes) / MB,
+            "size_no_embedding_MB": (p_bytes_noembed + buf_bytes) / MB,
+
+            # --- DETTAGLIO BUFFER ---
+            "num_buffers": n_buf,
+            "buffers_MB": buf_bytes / MB,
+        }
 
 
     def info(self, name=None):
@@ -55,7 +73,7 @@ class MemoryProfile:
         for n in data_names:
             print(f"[[ {n} ]]")
             for k, v in self.data[n].items():
-                if k == "model_params" or k == "model_total_params":
+                if k in ["num_params_with_embedding", "num_params_no_embedding", "num_total_with_embedding", "num_total_no_embedding", "num_buffers"]:
                     print(f"{k}: {v:,} params")
                 else:
                     print(f"{k}: {v:.2f} MB")

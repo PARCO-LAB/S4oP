@@ -254,6 +254,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
         print(f"\n=== PRUNING {perc*100}% ===")
 
         best_acc = -1
+        best_val_acc = -1
         best_seed = None
         best_checkpoint = None
         timers[perc] = {}
@@ -362,13 +363,14 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
                 checkpoint_folder=os.path.join(f"./{checkpoint_folder}", f"{model_name}_{dataset_name}_seed{seed}_pruned_{int(perc*100)}%.pth"),
                 patience=pc["early_stopping"]
             )
-            trainer.run()
+            val_acc = trainer.run()
 
             acc = model_test.run()
 
-            if acc > best_acc:
-                best_seed = seed
+            if val_acc > best_val_acc:
                 best_acc = acc
+                best_seed = seed
+                best_val_acc = val_acc
                 best_checkpoint = os.path.join(f"./{checkpoint_folder}", f"{model_name}_{dataset_name}_pruned_{int(perc*100)}%.pth")
                 torch.save(
                 {

@@ -8,7 +8,7 @@ from models_config import *
 from models_datasets_and_profiling_implementation.model import ModelTrain, ModelTest, ModelInfo, ModelProfile
 from models_datasets_and_profiling_implementation.model.utils import set_benchmark, set_seed, setup_optimizer
 
-set_seed(123)
+set_seed(7)
 set_benchmark(False)
 
 def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
@@ -55,6 +55,8 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
 
         print(f"\nStarting training for {config[f'{model_name}'][f'{dataset_name}']['epochs']} epochs with batch size {config[f'{model_name}'][f'{dataset_name}']['batch_size']}...")
         # Training
+        for name, buf in model_train.model.named_buffers():
+            print(name, tuple(buf.shape), buf.numel())
         model_train.run(optimizer, scheduler, criterion, config[f"{model_name}"][f"{dataset_name}"]["epochs"], checkpoints_folder=os.path.join(".", f"{checkpoints_folder}"), is_pruned=False, patience=config[f"{model_name}"][f"{dataset_name}"]["patience"])
 
         # Testing

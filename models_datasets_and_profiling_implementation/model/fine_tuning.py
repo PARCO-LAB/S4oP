@@ -1,6 +1,6 @@
 import torch
 from . import ModelTrain
-from .utils import setup_optimizer
+from .utils import setup_optimizer, get_device
 
 class FineTuning: 
     def __init__(self, 
@@ -37,4 +37,13 @@ class FineTuning:
             is_pruned=True,
             patience=self.patience
         )
-        
+
+        ckpt = torch.load(self.checkpoint_folder, map_location=get_device())
+        self.model_train.model.load_state_dict(ckpt["model_state_dict"])
+
+        if isinstance(criterion, torch.nn.BCEWithLogitsLoss):
+            _, _, val_f1 = self.model_train.val_step(criterion)
+            return val_f1
+        else:
+            val_accuracy, _ = self.model_train.val_step(criterion)
+            return val_accuracy

@@ -1,20 +1,20 @@
 #!/bin/bash
-#SBATCH --job-name=ecg
+#SBATCH --job-name=test
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpuRTX     
 #SBATCH --cpus-per-task=16 
 #SBATCH --mem=128G
-#SBATCH --time=120:00:00      
-#SBATCH --output=unstructured/%x_%j.out   
-#SBATCH --error=unstructured/%x_%j.err    
+#SBATCH --time=96:00:00      
+#SBATCH --output=test/%x_%j.out   
+#SBATCH --error=test/%x_%j.err    
 
 set -euo pipefail
 
 MODEL="mamba"
-DATASET="ecg"
-CKPT_FOLDER="checkpoints3"
-CKPT_PRUNED="checkpoints_unstructured3"
-mkdir -p unstructured
+DATASET="image"
+CKPT_FOLDER="checkpoints1"
+CKPT_PRUNED="checkpoints_unstructured1"
+
 module load cuda/12.8 
 
 echo "==================== INFO NODO ===================="
@@ -34,8 +34,17 @@ if torch.cuda.is_available():
 PYEOF
 echo "==================================================="
 
-echo ">>> python3 unstructured_pruning.py -d ${DATASET} -c ${CKPT_FOLDER} -o ${CKPT_PRUNED} --importance_batches 5 --test"
-srun python3 unstructured_pruning.py -d "${DATASET}" -c "${CKPT_FOLDER}" -o "${CKPT_PRUNED}" --importance_batches 5 --test
+PRUNED_MODELS=(
+    "mamba_${DATASET}_pruned_10%"
+    "mamba_${DATASET}_pruned_30%"
+    "mamba_${DATASET}_pruned_50%"
+    "mamba_${DATASET}_pruned_70%"
+    "mamba_${DATASET}_pruned_90%"
+)
+
+for PRUNED_MODEL in "${PRUNED_MODELS[@]}"; do
+    echo ">>> python3 test.py --dataset ${DATASET} --checkpoint ./${CKPT_PRUNED}/${PRUNED_MODEL}.pth"
+    srun python3 test.py --dataset "${DATASET}" --checkpoint "./${CKPT_PRUNED}/${PRUNED_MODEL}.pth"
+done
 
 echo ">>> FINITO (exit code $?)"
-

@@ -92,7 +92,7 @@ class ModelInfo:
         elif dataset_name == "retrieval":
             self.input_shape = (batch_size, 2, seq_len)
         else:
-            self.input_shape = (batch_size, seq_len, 1)
+            self.input_shape = (batch_size, seq_len, 1) if self.dataset_name == "image" else (batch_size, seq_len, 12)
 
         self.augment()
 

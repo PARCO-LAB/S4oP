@@ -1,15 +1,6 @@
-from . import s4
-
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import utils
-
-__all__ = {
-    "s4_old": s4.S4_old,
-    "s4d_old": s4.S4D_old,
-    "s4d": s4.S4D,
-    "s4": s4.S4,
-}
 
 class NetFactory:
     def __init__(
@@ -24,10 +15,11 @@ class NetFactory:
         num_classes,
         norm,
         pre_norm,
-        active_idx_layers=None, # lista di indici attivi per S4D pruned
+        active_idx_layers=None, # lista di indici attivi
     ):
         if model_name == "s4d_old":
-            self.net = __all__["s4d_old"](vocab_size=vocab_size,
+            from . import s4
+            self.net = s4.S4_old(vocab_size=vocab_size,
                                       dataset_name=dataset_name,
                                       d_model=d_model,
                                       d_state=d_state,
@@ -37,7 +29,8 @@ class NetFactory:
                                       norm=norm,
                                       pre_norm=pre_norm)
         elif model_name == "s4_old":
-            self.net = __all__["s4_old"](vocab_size=vocab_size,
+            from . import s4
+            self.net = s4.S4D_old(vocab_size=vocab_size,
                                      dataset_name=dataset_name,
                                      d_model=d_model,
                                      d_state=d_state,
@@ -47,7 +40,8 @@ class NetFactory:
                                      norm=norm,
                                      pre_norm=pre_norm)  
         elif model_name == "s4d":
-            self.net = __all__["s4d"](vocab_size=vocab_size,
+            from . import s4
+            self.net = s4.S4D(vocab_size=vocab_size,
                                             dataset_name=dataset_name,
                                             d_model=d_model,
                                             d_state=d_state,
@@ -58,7 +52,8 @@ class NetFactory:
                                             norm=norm,
                                             pre_norm=pre_norm)
         elif model_name == "s4":
-            self.net = __all__["s4"](vocab_size=vocab_size,
+            from . import s4
+            self.net = s4.S4(vocab_size=vocab_size,
                                             dataset_name=dataset_name,
                                             d_model=d_model,
                                             d_state=d_state,

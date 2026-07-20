@@ -33,7 +33,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         seq_len = 5995
         num_classes = 10
     elif dataset_name == "pathfinder":
-        vocab_size = 3
+        vocab_size = 1
         seq_len = 1024
         num_classes = 2
     elif dataset_name == "ecg":
@@ -41,11 +41,11 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         seq_len = 4096
         num_classes = 6
     elif dataset_name == "image":
-        vocab_size = 256
+        vocab_size = 1
         seq_len = 1024
         num_classes = 10
     elif dataset_name == "retrieval":
-        vocab_size = 128
+        vocab_size = 256
         seq_len = 4096
         num_classes = 2
     else:
@@ -73,7 +73,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             dataset_name=dataset_name,
             vocab_size=vocab_size,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
-            d_state=64 if model_name != "mamba" else 128,
+            d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
             num_classes=num_classes,
@@ -93,7 +93,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             model=model, 
             vocab_size=vocab_size,
             seq_len=seq_len, 
-            batch_size=1, 
+            batch_size=100, 
             dataset_name=dataset_name
         )
 
@@ -104,7 +104,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             model_profile.run("prova", model, model_info.get_example_input, iterations=100)
             model_profile.info("prova")
     
-    # Se il modello esiste (e non è stato specificato un modello prunato), salto l'addestramento
+    # Se il modello esiste (e non è stato specificato un modello prunato)
     else: 
         print(f"\nLoading base model from path {model_path}...")
 
@@ -120,7 +120,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             dataset_name=dataset_name,
             vocab_size=vocab_size,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
-            d_state=64 if model_name != "mamba" else 128,
+            d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
             num_classes=num_classes,
@@ -140,7 +140,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             model=model, 
             vocab_size=vocab_size,
             seq_len=seq_len, 
-            batch_size=1, 
+            batch_size=100, 
             dataset_name=dataset_name
         )
 

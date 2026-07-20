@@ -77,7 +77,7 @@ class Mamba(nn.Module):
 
     def encode(self, x):
         # Input: [B, L] (token) oppure [B, L, C] (pathfinder/ecg)
-        has_padding = (x.dim() == 2) and (self.dataset_name not in ["image"])
+        has_padding = (x.dim() == 2)
         pad_mask = (x != 0) if has_padding else None
         x = self.embedding(x)        # -> [B, L, H]
 
