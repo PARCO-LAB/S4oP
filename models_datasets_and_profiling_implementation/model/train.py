@@ -41,23 +41,24 @@ class ModelTrain:
         dropout,
         norm,
         pre_norm,
-        active_idx_layers=None
+        active_idx_layers
     ):
         dataset = DatasetFactory(dataset_name=dataset_name, batch_size=batch_size, valsplit=valsplit, num_workers=num_workers).get_dataset()
-        num_classes = dataset.get_output_shape()[-1]
-        print(f"Num classes: {num_classes}, Input shape: {dataset.input_shape}, d_model: {d_model}")
+        num_classes = dataset.num_classes
         model = NetFactory(
             model_name=model_name, 
             dataset_name=dataset_name,
-            vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else dataset.input_shape[-1],
-            d_model=d_model, 
+            vocab_size=dataset.vocab_size,
+            input_size=dataset.input_size,
+            d_model=d_model,
             d_state=d_state,
             depth=depth,
-            dropout=dropout,     
+            dropout=dropout,
             num_classes=num_classes,
             norm=norm,
             pre_norm=pre_norm,
-            active_idx_layers=active_idx_layers
+            active_idx_layers=active_idx_layers,
+            dual_stream=dataset.dual_stream
         ).get_net()
         model.name = model_name
         return ModelTrain(model, dataset)
@@ -92,11 +93,11 @@ class ModelTrain:
                 # Accuracy multilabel: confronto elemento per elemento
                 correct += (predicted == labels).sum().item()
                 total += labels.numel()   # NOTA: numel, non batch_size
-                tp = torch.zeros(6, dtype=torch.float)
-                fp = torch.zeros(6, dtype=torch.float)
-                fn = torch.zeros(6, dtype=torch.float)
-                tn = torch.zeros(6, dtype=torch.float)
-                for c in range(6):
+                tp = torch.zeros(self.dataset.num_classes, dtype=torch.float)
+                fp = torch.zeros(self.dataset.num_classes, dtype=torch.float)
+                fn = torch.zeros(self.dataset.num_classes, dtype=torch.float)
+                tn = torch.zeros(self.dataset.num_classes, dtype=torch.float)
+                for c in range(self.dataset.num_classes):
                     tp[c] = ((predicted[:, c] == 1) & (labels[:, c] == 1)).sum().item()
                     fp[c] = ((predicted[:, c] == 1) & (labels[:, c] == 0)).sum().item()
                     fn[c] = ((predicted[:, c] == 0) & (labels[:, c] == 1)).sum().item()
@@ -153,15 +154,15 @@ class ModelTrain:
                 outputs = self.model(inputs)
                 batch_size = labels.size(0)
 
-                if self.dataset_name == "ecg":
+                if self.dataset.multilabel:
                     predicted = (outputs > 0).float()
                     correct += (predicted == labels).sum().item()
                     total += labels.numel()
-                    tp = torch.zeros(6, dtype=torch.float)
-                    fp = torch.zeros(6, dtype=torch.float)
-                    fn = torch.zeros(6, dtype=torch.float)
-                    tn = torch.zeros(6, dtype=torch.float)
-                    for c in range(6):
+                    tp = torch.zeros(self.dataset.num_classes, dtype=torch.float)
+                    fp = torch.zeros(self.dataset.num_classes, dtype=torch.float)
+                    fn = torch.zeros(self.dataset.num_classes, dtype=torch.float)
+                    tn = torch.zeros(self.dataset.num_classes, dtype=torch.float)
+                    for c in range(self.dataset.num_classes):
                         tp[c] = ((predicted[:, c] == 1) & (labels[:, c] == 1)).sum().item()
                         fp[c] = ((predicted[:, c] == 1) & (labels[:, c] == 0)).sum().item()
                         fn[c] = ((predicted[:, c] == 0) & (labels[:, c] == 1)).sum().item()
@@ -193,7 +194,7 @@ class ModelTrain:
             else:
                 #print(f"[Validation] val_loss: {val_loss:.4f} | val_accuracy: {val_accuracy:.3f}]")
                 return val_accuracy, val_loss
-        if self.dataset_name == "ecg":
+        if self.dataset.multilabel:
             f1 = sum(f1_list_train) / len(f1_list_train)
             return val_accuracy, f1 * 100
         else:

@@ -19,7 +19,7 @@ class FineTuning:
         self.patience = patience
 
     def run(self): 
-        criterion = torch.nn.CrossEntropyLoss() if self.model_train.dataset.name != "ecg" else torch.nn.BCEWithLogitsLoss()
+        criterion = torch.nn.BCEWithLogitsLoss() if self.model_train.dataset.multilabel else torch.nn.CrossEntropyLoss()
 
         optimizer, scheduler = setup_optimizer(
             model=self.model_train.model,
@@ -41,7 +41,7 @@ class FineTuning:
         ckpt = torch.load(self.checkpoint_folder, map_location=get_device())
         self.model_train.model.load_state_dict(ckpt["model_state_dict"])
 
-        if isinstance(criterion, torch.nn.BCEWithLogitsLoss):
+        if self.model_train.dataset.multilabel:
             _, _, val_f1 = self.model_train.val_step(criterion)
             return val_f1
         else:

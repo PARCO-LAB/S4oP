@@ -24,30 +24,38 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         model_path = os.path.join(f"./{checkpoints_folder}", f"{pruned_model_name}.pth")
 
     # Metadati in base al dataset
+    dual_stream = False
     if dataset_name == "imdb":
         vocab_size = 30522
         seq_len = 4096
         num_classes = 2
+        input_size = 1
     elif dataset_name == "listops":
         vocab_size = 18
         seq_len = 5995
         num_classes = 10
+        input_size = 1
     elif dataset_name == "pathfinder":
-        vocab_size = 1
+        vocab_size = None
         seq_len = 1024
         num_classes = 2
+        input_size = 1
     elif dataset_name == "ecg":
-        vocab_size = 12
+        vocab_size = None
         seq_len = 4096
         num_classes = 6
+        input_size = 12
     elif dataset_name == "image":
-        vocab_size = 1
+        vocab_size = None
         seq_len = 1024
         num_classes = 10
+        input_size = 1
     elif dataset_name == "retrieval":
         vocab_size = 256
         seq_len = 4096
         num_classes = 2
+        input_size = 1
+        dual_stream = True
     else:
         raise FileNotFoundError(f"Dataset {dataset_name} does not exist.")
 
@@ -72,6 +80,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             model_name=model_name,
             dataset_name=dataset_name,
             vocab_size=vocab_size,
+            input_size=input_size,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
             d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
@@ -79,7 +88,8 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             num_classes=num_classes,
             norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
             pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"],
-            active_idx_layers=active_idx_layers
+            active_idx_layers=active_idx_layers,
+            dual_stream=dual_stream,
         ).get_net()
 
         if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
@@ -92,8 +102,10 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         model_info = ModelInfo(
             model=model, 
             vocab_size=vocab_size,
+            input_size=input_size,
             seq_len=seq_len, 
-            batch_size=100, 
+            batch_size=100,
+            dual_stream=dual_stream,
             dataset_name=dataset_name
         )
 
@@ -119,6 +131,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             model_name=model_name,
             dataset_name=dataset_name,
             vocab_size=vocab_size,
+            input_size=input_size,
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"], 
             d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
@@ -126,7 +139,8 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             num_classes=num_classes,
             norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
             pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"],
-            active_idx_layers=active_idx_layers
+            active_idx_layers=active_idx_layers,
+            dual_stream=dual_stream,
         ).get_net()
 
         if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
@@ -139,8 +153,10 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         model_info = ModelInfo(
             model=model, 
             vocab_size=vocab_size,
+            input_size=input_size,
             seq_len=seq_len, 
-            batch_size=100, 
+            batch_size=100,
+            dual_stream=dual_stream,
             dataset_name=dataset_name
         )
 

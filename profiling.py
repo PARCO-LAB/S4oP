@@ -32,7 +32,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             valsplit=config["val_split"],
             num_workers=0, # Niente workers per evitare problemi di multiprocessing
             d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
-            d_state=64,
+            d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
             norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
@@ -43,9 +43,11 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
-            vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
-            seq_len=model_test.dataset.input_shape[1], 
+            vocab_size=model_test.dataset.vocab_size,
+            input_size=model_test.dataset.input_size,
+            seq_len=model_test.dataset.seq_len, 
             batch_size=1, 
+            dual_stream=model_test.dataset.dual_stream,
             dataset_name=dataset_name
         )
 
@@ -64,7 +66,6 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         torch.cuda.cudart().cudaProfilerStart()
         _ = model(example_input)
         torch.cuda.cudart().cudaProfilerStop()
-
 
         torch.cuda.synchronize()
     # Il modello non esiste, lancio un errore

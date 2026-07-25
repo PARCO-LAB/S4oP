@@ -12,7 +12,7 @@ class ImageDataset(DatasetInterface):
             with open(f"data/image/lra-image.{split}.pickle", "rb") as f:
                 data = pickle.load(f)
             X = torch.from_numpy(np.stack([s["input_ids_0"] for s in data])).float()  # (N, 1024)  
-            X = (X / 255.0).unsqueeze(-1) 
+            X = (X / 255.0).unsqueeze(-1) # (N, 1024, 1) in [0,1]
             y = torch.from_numpy(np.array([s["label"] for s in data], dtype=np.int64))
             return TensorDataset(X, y)
 
@@ -20,8 +20,12 @@ class ImageDataset(DatasetInterface):
         self.valset = load_split("dev")
         self.testset = load_split("test")
 
-        self.labels = list(range(10))
-        self.input_shape = (batch_size, 1024, 1)
+        y_train = self.trainset.tensors[1]
+        self.labels = list(range(int(y_train.max().item()) + 1))
+        self.num_classes = len(self.labels)
+        self.seq_len = self.trainset.tensors[0].shape[1] # 1024
+        self.input_size = self.trainset.tensors[0].shape[2]  # 1 (pixel scalare)
+        self.vocab_size = None # continuo -> nn.Linear
+        self.input_shape = (batch_size, self.seq_len, self.input_size)
 
-        print(f"IMAGE: {len(self.trainset)} train, {len(self.valset)} val, "
-              f"{len(self.testset)} test, seq_len=1024, classes=10")
+        self.summary()

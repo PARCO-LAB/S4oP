@@ -28,22 +28,26 @@ class MambaPruner:
     def __init__(self, model, alpha=1.0, include_embeddings=False, prune_A_log=False):
         self.model = model
         self.alpha = alpha
-        self.weights = {} # nome -> parametro prunabile
+        self.weights = {} # prunabili
         self.masks = {} # nome -> maschera
+        self.protected_numel = 0 # contati eventualmente nel denominatore, mai prunati (A_log)
 
         for name, p in model.named_parameters():
-            if not p.requires_grad:
+            if not p.requires_grad:  continue
+            if p.dim() < 2: continue
+            is_embed = "embed" in name.lower()
+            is_A_log = "A_log" in name
+
+            if (not include_embeddings) and is_embed:
+                continue # embedding: fuori dal tutto
+            if is_A_log and (not prune_A_log):
+                self.protected_numel += p.numel() # protetto ma contato
                 continue
-            if p.dim() < 2:
-                continue
-            if ("A_log" in name) and (not prune_A_log):
-                continue
-            if (not include_embeddings) and ("embed" in name.lower()):
-                continue
+
             self.weights[name] = p
             self.masks[name] = torch.ones_like(p)
 
-        # Hook sui gradienti: azzera il gradiente dei pesi gia' potati, cosi' optimizer/weight-decay non li resuscitano
+        # Hook sui gradienti: azzera il gradiente dei pesi verrann potati, cosi' optimizer/weight-decay non li resuscitano
         for name, p in self.weights.items():
             p.register_hook(lambda g, n=name: g * self.masks[n])
 
@@ -56,7 +60,7 @@ class MambaPruner:
     @torch.no_grad()
     def current_sparsity(self):
         zeros = sum((m == 0).sum().item() for m in self.masks.values())
-        total = sum(m.numel() for m in self.masks.values())
+        total = sum(m.numel() for m in self.masks.values()) + self.protected_numel
         return zeros / max(1, total)
 
     def update_mask(self, target_sparsity, trainloader, criterion, n_batches=5):
@@ -91,7 +95,14 @@ class MambaPruner:
         # Classifica globale -> soglia di taglio
         flat = torch.cat([s.flatten().cpu() for s in scores.values()])
 
-        k = max(1, min(int(target_sparsity * flat.numel()), flat.numel() - 1))
+        # Calcola la % esatta di parametri da prunare (se prune_A_log=False)
+        prunable_total = flat.numel()
+        pool_total = prunable_total + self.protected_numel
+        k_global = int(round(target_sparsity * pool_total))
+        k = max(1, min(k_global, prunable_total - 1))
+        if k_global > prunable_total - 1:
+            print(f"[WARN] {target_sparsity:.0%} irraggiungibile: A_log protetto è "
+                f"{self.protected_numel/pool_total:.1%} del pool")
         threshold = torch.kthvalue(flat, k).values.to(device) # Prende il k-esimo valore più piccolo
 
         with torch.no_grad():
@@ -102,13 +113,13 @@ class MambaPruner:
 
     @torch.no_grad()
     def sparsity_per_group(self):
-        """Sparsita' SSM vs proiezioni lineari"""
         groups = {"ssm": [0, 0], "linear": [0, 0]}
         ssm_tags = ("x_proj", "dt_proj", "conv1d", "A_log")
         for name, m in self.masks.items():
             key = "ssm" if any(t in name for t in ssm_tags) else "linear"
             groups[key][0] += (m == 0).sum().item()
             groups[key][1] += m.numel()
+        groups["ssm"][1] += self.protected_numel   # A_log conta nel denom. ssm
         return {k: v[0] / max(1, v[1]) for k, v in groups.items()}
 
 # FINE-TUNER
@@ -130,7 +141,7 @@ class PruningFineTuning:
         self.importance_batches = importance_batches
 
     def run(self):
-        is_ecg = self.mt.dataset.name == "ecg"
+        is_ecg = self.mt.dataset.multilabel
         base_criterion = torch.nn.BCEWithLogitsLoss() if is_ecg else torch.nn.CrossEntropyLoss()
 
         # Optimizer/scheduler interni, come Table 8: AdamW + decay lineare lr->lr_min
@@ -196,7 +207,7 @@ def build_args():
     parser.add_argument("--start_frac", type=float, default=0.0, help="Quando inizia il pruning (frazione della rampa)")
     parser.add_argument("--alpha", type=float, default=1.0)
     parser.add_argument("--importance_batches", type=int, default=5)
-    parser.add_argument("--prune_A_log", action="store_true", default=True, help="Includi A_log nel pruning ")
+    parser.add_argument("--prune_A_log", action="store_true", help="Includi A_log nel pruning ")
     parser.add_argument("--test", action="store_true", default=True, help="Testa il modello potato a fine pruning")
     return parser.parse_args()
 
@@ -280,8 +291,8 @@ def main():
             accuracies[p] = acc
 
     print(f"\n=== ACCURACY MIGLIORI PER OGNI STEP ===")
-    for perc, acc in accuracies.items():
-        print(f"    - Pruning {int(perc*100)}%: {acc:.2f}%.")
+    for per, acc in accuracies.items():
+        print(f"    - Pruning {int(per*100)}%: {acc:.2f}%.")
 
 if __name__ == "__main__":
     main()

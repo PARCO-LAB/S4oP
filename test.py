@@ -4,14 +4,16 @@ import torch.nn as nn
 
 MB = 1024 ** 2
 
-# (vocab_size, num_classes, seq_len)
+# (vocab_size, input_size, num_classes, seq_len, dual_stream)
 DATASET_META = {
-    "imdb":      (30522, 2, 4096),
-    "listops":   (18, 10, 5995),
-    "ecg":       (12, 6, 4096),
-    "image":     (1, 10, 1024),
-    "retrieval": (256, 2, 4096),
+    "imdb":       (30522, 1,  2, 4096, False),
+    "listops":    (18,    1, 10, 5995, False),
+    "retrieval":  (256,   1,  2, 4096, True),
+    "pathfinder": (None,  1,  2, 1024, False),
+    "ecg":        (None, 12,  6, 4096, False),
+    "image":      (None,  1, 10, 1024, False),
 }
+
 
 # ---------- utilities ----------
 
@@ -29,7 +31,7 @@ def _mem_coo_bytes(W_coo):
 def _mem_dense_bytes(W):
     return W.numel() * W.element_size()
 
-def collect_linear_layers(model, skip=("embedding", "fc")):
+def collect_linear_layers(model, skip=("embedding", "fc", "match")):
     """Estrae dal modello nome + shape di ogni nn.Linear prunabile.
     Deduplica le shape ripetute sui layer (i 12 blocchi hanno le stesse)."""
     seen, layers = set(), []
@@ -130,15 +132,15 @@ def load_model(dataset, checkpoint):
     from models_datasets_and_profiling_implementation.model.utils import get_device
 
     cfg = MODELS_CONFIG["mamba"][dataset]
-    vocab_size, num_classes, seq_len = DATASET_META[dataset]
+    vocab_size, input_size, num_classes, seq_len, dual_stream = DATASET_META[dataset]
 
     ckpt = torch.load(checkpoint, map_location=get_device())
     model = NetFactory(
         model_name="mamba", dataset_name=dataset,
-        vocab_size=vocab_size, num_classes=num_classes,
+        vocab_size=vocab_size, input_size=input_size, num_classes=num_classes,
         d_model=cfg["features"], d_state=cfg["d_state"], depth=cfg["depth"],
         dropout=cfg["dropout"], norm=cfg["norm"], pre_norm=cfg["pre-norm"],
-        active_idx_layers=ckpt.get("active_idx_layers"),
+        active_idx_layers=ckpt.get("active_idx_layers"), dual_stream=dataset==dual_stream
     ).get_net().to(get_device())
     model.load_state_dict(ckpt["model_state_dict"], strict=True)
     return model, seq_len

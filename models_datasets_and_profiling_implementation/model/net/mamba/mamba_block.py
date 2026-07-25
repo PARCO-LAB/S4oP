@@ -32,10 +32,10 @@ class Mamba(nn.Module):
     def __init__(
         self,
         d_model,
+        active_idx, 
         d_state=16,
         d_conv=4,
         expand=2,
-        active_idx=None, 
         dt_rank="auto",
         dt_min=0.001,
         dt_max=0.1,
@@ -58,13 +58,11 @@ class Mamba(nn.Module):
         self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
         self.use_fast_path = use_fast_path
         self.layer_idx = layer_idx
-        if active_idx is not None:
-            if not isinstance(active_idx, (list, tuple)):
-                active_idx = list(active_idx)
-            self.active_idx = active_idx
-            self.d_inner = len(active_idx)
-        else:
-            self.active_idx = None
+        
+        if not isinstance(active_idx, (list, tuple)):
+            active_idx = list(active_idx)
+        self.active_idx = active_idx
+        self.d_inner = len(active_idx)
 
         self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
 

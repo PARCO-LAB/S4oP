@@ -1,6 +1,5 @@
 import argparse
 import os
-import copy
 import random
 import torch
 import gc
@@ -297,15 +296,17 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
             model = NetFactory(
                 model_name=model_name,
                 dataset_name=dataset_name,
-                vocab_size=prev_model.dataset.vocab_size if hasattr(prev_model.dataset, 'vocab_size') else prev_model.dataset.input_shape[-1],
+                vocab_size=prev_model.dataset.vocab_size,
+                input_size=prev_model.dataset.input_size,
                 d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
                 d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
                 depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
                 dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
-                num_classes=prev_model.dataset.get_output_shape()[-1],
+                num_classes=prev_model.dataset.num_classes,
                 norm=config[f"{model_name}"][f"{dataset_name}"]["norm"],
                 pre_norm=config[f"{model_name}"][f"{dataset_name}"]["pre-norm"] ,
-                active_idx_layers=active_idx
+                active_idx_layers=active_idx,
+                dual_stream=prev_model.dataset.dual_stream,
             ).get_net()
 
             # === COPY EMBEDDING ===
@@ -316,7 +317,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
             # === COPY LAYERS ===
             if model_name == "s4d":
                 for i, (lm, ls) in enumerate(zip(prev_model.model.s4d_layers, model.s4d_layers)):
-                    mapping = {int(g):i for i,g in enumerate(prev_active_idx[i])}
+                    mapping = {int(g):j for j,g in enumerate(prev_active_idx[i])}
                     local_idx = [mapping[int(g)] for g in active_idx[i]]
                     convert_layer_s4d(lm, ls, local_idx)
             elif model_name == "mamba":
@@ -326,7 +327,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
                     convert_layer_mamba(lm, ls, local_idx)
             else:
                 for i, (lm, ls) in enumerate(zip(prev_model.model.s4_layers, model.s4_layers)):
-                    mapping = {int(g):i for i,g in enumerate(prev_active_idx[i])}
+                    mapping = {int(g):j for j,g in enumerate(prev_active_idx[i])}
                     local_idx = [mapping[int(g)] for g in active_idx[i]]
                     convert_layer_s4(lm, ls, local_idx)
 
@@ -334,20 +335,15 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
             for nm, ns in zip(prev_model.model.norms, model.norms):
                 ns.load_state_dict(nm.state_dict())
 
-            if model_name == "mamba" and hasattr(model, "norm_f"):
+            if hasattr(model, "norm_f") and hasattr(prev_model.model, "norm_f"):
                 model.norm_f.load_state_dict(prev_model.model.norm_f.state_dict())
 
-            # === COPY CLASSIFIER ===
-            if model_name == "mamba" and hasattr(model, "fc"):
-                model.fc.load_state_dict(
-                    prev_model.model.fc.state_dict()
-                )
+            # === COPY CLASSIFIER / TESTA ===
+            if hasattr(model, "fc") and hasattr(prev_model.model, "fc"):
+                model.fc.load_state_dict(prev_model.model.fc.state_dict())
 
-            # === COPY MLP MATCH FOR RETRIEVAL DATASET ===
-            if model_name == "mamba" and hasattr(model, "match"):
-                model.match.load_state_dict(
-                    prev_model.model.match.state_dict()
-                )
+            if hasattr(model, "match") and hasattr(prev_model.model, "match"):
+                model.match.load_state_dict(prev_model.model.match.state_dict())
 
             model_test = ModelTest(model=model, dataset=prev_model.dataset)
             model = model_test.model

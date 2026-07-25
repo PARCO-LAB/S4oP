@@ -6,8 +6,8 @@ from .interface import DatasetInterface
 
 
 class ListOpsLazy(Dataset):
-    def __init__(self, tsv_path, vocab, max_len):
-        self.df = pd.read_csv(tsv_path, sep="\t", header=0)
+    def __init__(self, df, vocab, max_len):
+        self.df = df.reset_index(drop=True)
         self.vocab = vocab
         self.pad_idx = vocab["<PAD>"]
         self.max_len = max_len
@@ -18,13 +18,8 @@ class ListOpsLazy(Dataset):
     def __getitem__(self, idx):
         seq = self.df.iloc[idx, 0]
         label = int(self.df.iloc[idx, 1])
-
-        tokens = [self.vocab[t] for t in seq.split()]
-        tokens = tokens[:self.max_len]
-        pad_len = self.max_len - len(tokens)
-        if pad_len > 0:
-            tokens += [self.pad_idx] * pad_len
-
+        tokens = [self.vocab[t] for t in seq.split()][:self.max_len]
+        tokens += [self.pad_idx] * (self.max_len - len(tokens))
         return torch.tensor(tokens, dtype=torch.long), torch.tensor(label, dtype=torch.long)
 
 
@@ -33,38 +28,38 @@ class LRAListOps(DatasetInterface):
         super().__init__("listops", batch_size, num_workers)
 
         root_data = "data"
-        train_path = os.path.join(root_data, "listops/train.tsv")
-        val_path = os.path.join(root_data, "listops/val.tsv")
-        test_path = os.path.join(root_data, "listops/test.tsv")
+        paths = {s: os.path.join(root_data, f"listops/{s}.tsv")
+                 for s in ("train", "val", "test")}
+        dfs = {s: pd.read_csv(p, sep="\t", header=0) for s, p in paths.items()}
 
-        train_df = pd.read_csv(train_path, sep="\t", header=0)
-        val_df = pd.read_csv(val_path,   sep="\t", header=0)
-        test_df = pd.read_csv(test_path,  sep="\t", header=0)
-
+        # vocab da tutti gli split (val/test non devono avere token sconosciuti)
         unique_tokens = set()
-        for df in (train_df, val_df, test_df):
+        for df in dfs.values():
             for seq in df.iloc[:, 0].values:
                 unique_tokens.update(seq.split())
-
         self.vocab = {"<PAD>": 0}
-        for idx, tok in enumerate(sorted(unique_tokens), start=1):
-            self.vocab[tok] = idx
+        for i, tok in enumerate(sorted(unique_tokens), start=1):
+            self.vocab[tok] = i
 
-        self.vocab_size = len(self.vocab)
-        self.labels = list(range(10))
-
-        # Lunghezza massima di sequenza su tutti gli split (per il padding)
         max_len = max(
-            max(len(seq.split()) for seq in train_df.iloc[:, 0].values),
-            max(len(seq.split()) for seq in val_df.iloc[:, 0].values),
-            max(len(seq.split()) for seq in test_df.iloc[:, 0].values),
+            max(len(seq.split()) for seq in df.iloc[:, 0].values)
+            for df in dfs.values()
         )
 
-        # Tre dataset separati: niente più random_split
-        self.trainset = ListOpsLazy(train_path, self.vocab, max_len)
-        self.valset = ListOpsLazy(val_path,   self.vocab, max_len)
-        self.testset = ListOpsLazy(test_path,  self.vocab, max_len)
+        self.trainset = ListOpsLazy(dfs["train"], self.vocab, max_len)
+        self.valset = ListOpsLazy(dfs["val"], self.vocab, max_len)
+        self.testset = ListOpsLazy(dfs["test"], self.vocab, max_len)
 
+        # num_classes derivato dalle label reali
+        all_labels = set()
+        for df in dfs.values():
+            all_labels.update(int(v) for v in df.iloc[:, 1].values)
+        self.labels = sorted(all_labels)
+
+        self.seq_len = max_len
+        self.input_size = 1 # un token per timestep
+        self.num_classes = len(self.labels) # 10
+        self.vocab_size = len(self.vocab)
         self.input_shape = (batch_size, max_len)
 
-        print(f"LRAListOps: {len(self.trainset)} train, {len(self.valset)} val, {len(self.testset)} test, seq_len={max_len}, vocab_size={self.vocab_size}")
+        self.summary()

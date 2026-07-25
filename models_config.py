@@ -56,6 +56,34 @@ MODELS_CONFIG = {
             "epochs": 200,
             "wd": 0.03,
             "patience": 20
+        },
+        "image":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 512,
+            "norm": "LN",
+            "pre-norm": False,
+            "dropout": 0.1,
+            "lr": 0.01,
+            "batch_size": 50,
+            "epochs": 200,
+            "wd": 0.05,
+            "patience": 20
+        },
+        "retrieval":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.0,
+            "lr": 0.01,
+            "batch_size": 64,
+            "epochs": 20,
+            "wd": 0.05,
+            "patience": 5
         }
     },
     "s4":
@@ -115,6 +143,34 @@ MODELS_CONFIG = {
             "epochs": 200,
             "wd": 0,
             "patience": 20
+        },
+        "image":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 512,
+            "norm": "LN",
+            "pre-norm": False,
+            "dropout": 0.2,
+            "lr": 0.004,
+            "batch_size": 50,
+            "epochs": 200,
+            "wd": 0.01,
+            "patience": 20
+        },
+        "retrieval":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "BN",
+            "pre-norm": True,
+            "dropout": 0.0,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 20,
+            "wd": 0.0,
+            "patience": 5
         }
     },
     "mamba":

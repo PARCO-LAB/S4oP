@@ -12,7 +12,8 @@ class Mamba(nn.Module):
 
     def __init__(
         self,
-        vocab_size,
+        vocab_size, # None -> input continuo
+        input_size, # feature dim, usato solo quando vocab_size is None
         dataset_name,
         d_model,
         depth,
@@ -21,7 +22,7 @@ class Mamba(nn.Module):
         active_idx_layers,
         norm,
         pre_norm,
-        d_state=16,
+        d_state,
         d_conv=4,
         expand=2,
     ):
@@ -31,9 +32,9 @@ class Mamba(nn.Module):
         self.active_idx_layers = active_idx_layers
         self.dataset_name = dataset_name
 
-        if dataset_name in ["pathfinder", "ecg", "image"]:
+        if vocab_size is None:
             # input continuo -> embedding lineare: [B, L, C] -> [B, L, H]
-            self.embedding = nn.Linear(vocab_size, d_model)
+            self.embedding = nn.Linear(input_size, d_model)
         else:
             # input discreto -> embedding token: [B, L] -> [B, L, H]
             self.embedding = nn.Embedding(vocab_size, d_model, padding_idx=0)
@@ -49,7 +50,7 @@ class Mamba(nn.Module):
                     d_state=d_state,
                     d_conv=d_conv,
                     expand=expand,
-                    active_idx=active_idx_layers[i] if active_idx_layers is not None else None
+                    active_idx=active_idx_layers[i]
                 )
             )
             if norm.upper() == "LN":

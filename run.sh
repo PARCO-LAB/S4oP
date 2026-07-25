@@ -1,20 +1,20 @@
 #!/bin/bash
-#SBATCH --job-name=image
+#SBATCH --job-name=retrieval_mamba
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpuRTX     
 #SBATCH --cpus-per-task=16 
 #SBATCH --mem=128G
 #SBATCH --time=96:00:00      
-#SBATCH --output=unstructured/%x_%j.out   
-#SBATCH --error=unstructured/%x_%j.err    
+#SBATCH --output=test/%x_%j.out   
+#SBATCH --error=test/%x_%j.err    
 
 set -euo pipefail
 
-MODEL="mamba"
-DATASET="image"
-CKPT_FOLDER="checkpoints1"
-CKPT_PRUNED="checkpoints_pruned1"
-mkdir -p unstructured
+MODEL="s4d"
+DATASET="retrieval"
+CKPT_FOLDER="test"
+CKPT_PRUNED="test"
+mkdir -p test
 module load cuda/12.8 
 
 echo "==================== INFO NODO ===================="
@@ -39,30 +39,30 @@ echo "==================================================="
 # srun python3 exec_pruning.py -m "${MODEL}" -d "${DATASET}" -b "${CKPT_FOLDER}" -c "${CKPT_PRUNED}"
 
 # TRAIN/TEST BASE MODEL
-# echo ">>> python3 starting_model.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
-# srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
+echo ">>> python3 starting_model.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
+srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
 
 # TEST PRUNED MODEL
-# PRUNED_MODEL="mamba_listops_pruned_90%"
+# PRUNED_MODEL="mamba_retrieval_pruned_90%"
 # echo ">>> python3 starting_model.py -m ${MODEL} -d ${DATASET} -f ${CKPT_PRUNED} -p ${PRUNED_MODEL}"
 # srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_PRUNED}" -p "${PRUNED_MODEL}"
 
 # TEST LATENCY/MEMORY FOOTPRINT BASE MODEL
-echo ">>> python3 test_latency.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
-srun python3 test_latency.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
+# echo ">>> python3 test_latency.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
+# srun python3 test_latency.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
 
 # TEST LATENCY/MEMORY FOOTPRINT PRUNED MODEL
-PRUNED_MODELS=(
-    "mamba_${DATASET}_pruned_10%"
-    "mamba_${DATASET}_pruned_30%"
-    "mamba_${DATASET}_pruned_50%"
-    "mamba_${DATASET}_pruned_70%"
-    "mamba_${DATASET}_pruned_90%"
-)
+# PRUNED_MODELS=(
+#     "mamba_${DATASET}_pruned_10%"
+#     "mamba_${DATASET}_pruned_30%"
+#     "mamba_${DATASET}_pruned_50%"
+#     "mamba_${DATASET}_pruned_70%"
+#     "mamba_${DATASET}_pruned_90%"
+# )
 
-for PRUNED_MODEL in "${PRUNED_MODELS[@]}"; do
-    echo ">>> python3 test_latency.py -m ${MODEL} -d ${DATASET} -f ${CKPT_PRUNED} -p ${PRUNED_MODEL}"
-    srun python3 test_latency.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_PRUNED}" -p "${PRUNED_MODEL}"
-done
+# for PRUNED_MODEL in "${PRUNED_MODELS[@]}"; do
+#     echo ">>> python3 test_latency.py -m ${MODEL} -d ${DATASET} -f ${CKPT_PRUNED} -p ${PRUNED_MODEL}"
+#     srun python3 test_latency.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_PRUNED}" -p "${PRUNED_MODEL}"
+# done
 
 echo ">>> FINITO (exit code $?)"

@@ -5,11 +5,9 @@ from torchvision import transforms
 from PIL import Image
 from .interface import DatasetInterface
 
-
 class PathfinderLazy(Dataset):
 
     def __init__(self, root_data, imgs_dir, metadata_dir, transform):
-        self.root_data = root_data
         self.transform = transform
         self.samples = []  # lista di (img_path, label)
 
@@ -97,18 +95,20 @@ class LRAPathfinder(DatasetInterface):
         train_size = N - val_size - test_size
 
         self.trainset, self.valset, self.testset = random_split(
-            full_dataset, [train_size, val_size, test_size]
+            full_dataset, [train_size, val_size, test_size],
+            generator=torch.Generator().manual_seed(42),
         )
 
         # Input shape da un singolo sample (carica una sola immagine)
         sample_x, _ = full_dataset[0]
-        self.input_shape = (batch_size,) + tuple(sample_x.shape)  # [B, L, C]
 
-        # Distribuzione classi nel test set, calcolata dall'indice (niente immagini)
+        self.seq_len = sample_x.shape[0] # H*W = 1024
+        self.input_size = sample_x.shape[1] # C = 1 (grayscale)
+        self.num_classes = len(self.labels) # 2
+        self.vocab_size = None # continuo -> nn.Linear
+        self.input_shape = (batch_size, self.seq_len, self.input_size)
+
         test_labels = torch.tensor(
             [full_dataset.samples[i][1] for i in self.testset.indices]
         )
-        print(f"Il numero di sample per ciascuna classe (test): {torch.bincount(test_labels)}")
-
-        print(f"LRAPathfinder (lazy): {len(self.trainset)} train, {len(self.valset)} val, {len(self.testset)} test")
-        print(f"Input shape: {self.input_shape}, num_classes={len(self.labels)}")
+        self.summary(extra=f"pos/classe(test)={torch.bincount(test_labels).tolist()}")

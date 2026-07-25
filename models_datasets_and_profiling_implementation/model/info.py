@@ -77,46 +77,46 @@ def augment_input_output(model, example_input):
         h.remove()
 
 class ModelInfo: 
-    def __init__(self, model, vocab_size, seq_len, batch_size, dataset_name="dummy"):
+    def __init__(self, model, vocab_size, input_size, seq_len, batch_size, dual_stream=False, dataset_name="dummy"):
         self.model_name = model.name if hasattr(model, "name") else model.__class__.__name__
         self.dataset_name = dataset_name
 
         self.model = model
         self.model.eval()
         self.vocab_size = vocab_size
+        self.input_size = input_size
         self.seq_len = seq_len
         self.batch_size = batch_size
+        self.dual_stream = dual_stream
 
-        if self.dataset_name in ["listops", "imdb"]:
-            self.input_shape = (batch_size, seq_len)
-        elif dataset_name == "retrieval":
-            self.input_shape = (batch_size, 2, seq_len)
+        if dual_stream:
+            self.input_shape = (batch_size, 2, seq_len) # token, 2 documenti
+        elif vocab_size is not None:
+            self.input_shape = (batch_size, seq_len) # token singolo
         else:
-            self.input_shape = (batch_size, seq_len, 1) if self.dataset_name == "image" else (batch_size, seq_len, 12)
+            self.input_shape = (batch_size, seq_len, input_size) # continuo
 
         self.augment()
-
 
     def set_input_shape(self, seq_len=None, batch_size=None):
         if seq_len is not None:
             self.seq_len = seq_len
         if batch_size is not None:
             self.batch_size = batch_size
-        if self.dataset_name == "retrieval":
-            self.input_shape = (batch_size, 2, seq_len)
-        elif self.dataset_name in ["listops", "imdb"]:
-            self.input_shape = (batch_size, seq_len)
+        if self.dual_stream:
+            self.input_shape = (self.batch_size, 2, self.seq_len)
+        elif self.vocab_size is not None:
+            self.input_shape = (self.batch_size, self.seq_len)
         else:
-            self.input_shape = (batch_size, seq_len, 1) if self.dataset_name == "image" else (batch_size, seq_len, 12)
+            self.input_shape = (self.batch_size, self.seq_len, self.input_size)
         self.augment()
-
 
     @torch.no_grad()
     def augment(self):
         augment_names(self.model)
         self.model.childs = augment_childs(self.model)
 
-        if self.dataset_name in ["listops", "imdb", "retrieval"]:
+        if self.vocab_size is not None:
             input_sample = torch.randint(
                 0, self.vocab_size, self.input_shape, dtype=torch.long
             ).to(utils.get_device())
@@ -124,10 +124,9 @@ class ModelInfo:
             input_sample = torch.randn(*self.input_shape).to(utils.get_device())
 
         augment_input_output(self.model, input_sample)
-    
 
     def torchviz(self, output_dir="."):
-        if self.dataset_name in ["listops", "imdb", "retrieval"]:
+        if self.vocab_size is not None:
             input = torch.randint(0, self.vocab_size, self.input_shape, dtype=torch.long).to(utils.get_device())
         else:
             input = torch.randn(*self.input_shape).to(utils.get_device())
@@ -138,14 +137,14 @@ class ModelInfo:
 
     @torch.no_grad()
     def torchinfo(self, output_dir, name):
-        if self.dataset_name == "retrieval":
+        if self.dual_stream:
             input_size = (self.batch_size, 2, self.seq_len)
             dtypes = [torch.long]
-        elif self.dataset_name in ["listops", "imdb"]:
+        elif self.vocab_size is not None:
             input_size = (self.batch_size, self.seq_len)
             dtypes = [torch.long]
         else:
-            input_size = (self.batch_size, self.seq_len, 1) if self.dataset_name == "image" else (self.batch_size, self.seq_len, 12)
+            input_size = (self.batch_size, self.seq_len, self.input_size)
             dtypes = [torch.float]
 
         info = torchinfo.summary(
@@ -182,7 +181,7 @@ class ModelInfo:
         else: 
             input_shape = search_module.input_shape
             
-        if self.dataset_name in ["listops", "imdb", "retrieval"]:
+        if self.vocab_size is not None:
             example_input = torch.randint(0, self.vocab_size, input_shape, dtype=torch.long).to(utils.get_device())
         else:
             example_input = torch.randn(input_shape).to(utils.get_device())

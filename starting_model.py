@@ -45,7 +45,8 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         )
         print(f"\nModello: {model_name}, Dataset: {dataset_name}")
         print(model_train.model)
-        criterion = torch.nn.CrossEntropyLoss() if dataset_name in ["imdb", "listops", "pathfinder", "image", "retrieval"] else torch.nn.BCEWithLogitsLoss()
+        
+        criterion = torch.nn.BCEWithLogitsLoss() if model_train.dataset.multilabel else torch.nn.CrossEntropyLoss()
         optimizer, scheduler = setup_optimizer(
             model_train.model,
             lr=config[f"{model_name}"][f"{dataset_name}"]["lr"],
@@ -55,8 +56,6 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
 
         print(f"\nStarting training for {config[f'{model_name}'][f'{dataset_name}']['epochs']} epochs with batch size {config[f'{model_name}'][f'{dataset_name}']['batch_size']}...")
         # Training
-        for name, buf in model_train.model.named_buffers():
-            print(name, tuple(buf.shape), buf.numel())
         model_train.run(optimizer, scheduler, criterion, config[f"{model_name}"][f"{dataset_name}"]["epochs"], checkpoints_folder=os.path.join(".", f"{checkpoints_folder}"), is_pruned=False, patience=config[f"{model_name}"][f"{dataset_name}"]["patience"])
 
         # Testing
@@ -77,9 +76,11 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
-            vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
-            seq_len=model_test.dataset.input_shape[1], 
+            vocab_size=model_test.dataset.vocab_size,
+            input_size=model_test.dataset.input_size,
+            seq_len=model_test.dataset.seq_len, 
             batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"],
+            dual_stream=model_test.dataset.dual_stream,
             dataset_name=dataset_name
         )
         os.makedirs("model_info", exist_ok=True)
@@ -121,9 +122,11 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
-            vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
-            seq_len=model_test.dataset.input_shape[1], 
-            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
+            vocab_size=model_test.dataset.vocab_size,
+            input_size=model_test.dataset.input_size,
+            seq_len=model_test.dataset.seq_len, 
+            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"],
+            dual_stream=model_test.dataset.dual_stream,
             dataset_name=dataset_name
         )
         os.makedirs("model_info_pruned_structural", exist_ok=True)
@@ -162,9 +165,11 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         # Model Info
         model_info = ModelInfo(
             model=model_test.model, 
-            vocab_size=model_test.dataset.vocab_size if hasattr(model_test.dataset, 'vocab_size') else model_test.dataset.input_shape[-1],
-            seq_len=model_test.dataset.input_shape[1], 
-            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
+            vocab_size=model_test.dataset.vocab_size,
+            input_size=model_test.dataset.input_size,
+            seq_len=model_test.dataset.seq_len, 
+            batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"],
+            dual_stream=model_test.dataset.dual_stream,
             dataset_name=dataset_name
         )
         os.makedirs("model_info", exist_ok=True)

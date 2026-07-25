@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=ecg
+#SBATCH --job-name=retrieval
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpuRTX     
 #SBATCH --cpus-per-task=16 
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 MODEL="mamba"
-DATASET="ecg"
+DATASET="retrieval"
 CKPT_FOLDER="checkpoints3"
 CKPT_PRUNED="checkpoints_unstructured3"
 mkdir -p unstructured
@@ -34,8 +34,8 @@ if torch.cuda.is_available():
 PYEOF
 echo "==================================================="
 
-echo ">>> python3 unstructured_pruning.py -d ${DATASET} -c ${CKPT_FOLDER} -o ${CKPT_PRUNED} --importance_batches 5 --test"
-srun python3 unstructured_pruning.py -d "${DATASET}" -c "${CKPT_FOLDER}" -o "${CKPT_PRUNED}" --importance_batches 5 --test
+echo ">>> python3 unstructured_pruning.py -d ${DATASET} -c ${CKPT_FOLDER} -o ${CKPT_PRUNED} --importance_batches 5 --prune_A_log --test"
+srun python3 unstructured_pruning.py -d "${DATASET}" -c "${CKPT_FOLDER}" -o "${CKPT_PRUNED}" --importance_batches 5 --prune_A_log --test
 
 echo ">>> FINITO (exit code $?)"
 

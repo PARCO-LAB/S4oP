@@ -12,7 +12,7 @@ class IMDB(DatasetInterface):
         # Carica dataset IMDB
         tokenizer_name="bert-base-uncased"
         raw_train = load_dataset("stanfordnlp/imdb", split="train")
-        raw_test  = load_dataset("stanfordnlp/imdb", split="test")
+        raw_test = load_dataset("stanfordnlp/imdb", split="test")
 
         # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
@@ -31,25 +31,24 @@ class IMDB(DatasetInterface):
             return X, y
 
         X_train, y_train = tokenize_dataset(raw_train)
-        X_test, y_test   = tokenize_dataset(raw_test)
-        self.vocab_size = len(self.tokenizer)
-        print(f"Numero di sample per ciascuna classe: {torch.bincount(y_test)}")
+        X_test, y_test = tokenize_dataset(raw_test)
 
         # Train/val split
         val_size = int(valsplit * len(X_train))
         train_size = len(X_train) - val_size
 
-        indices = torch.randperm(len(X_train))
-        train_idx, val_idx = indices[:train_size], indices[train_size:]
+        perm = torch.randperm(len(X_train), generator=torch.Generator().manual_seed(42))
+        train_idx, val_idx = perm[:train_size], perm[train_size:]
 
         self.trainset = TensorDataset(X_train[train_idx], y_train[train_idx])
-        self.valset   = TensorDataset(X_train[val_idx], y_train[val_idx])
-        self.testset  = TensorDataset(X_test, y_test)
+        self.valset = TensorDataset(X_train[val_idx], y_train[val_idx])
+        self.testset = TensorDataset(X_test, y_test)
 
-        # Labels
         self.labels = [0, 1]
+        self.seq_len = X_train.shape[1] # 4096
+        self.input_size = 1 # un token per timestep
+        self.num_classes = 2
+        self.vocab_size = len(self.tokenizer) # tokenizzato -> nn.Embedding
+        self.input_shape = (batch_size, self.seq_len)  # 2D per input tokenizzato
 
-        # Input shape
-        self.input_shape = (batch_size, X_train.size(1))
-
-        print(f"IMDB: {len(self.trainset)} train, {len(self.valset)} val, {len(self.testset)} test, seq_len={X_train.size(1)}, vocab_size={self.vocab_size}")
+        self.summary(extra=f"pos/classe={torch.bincount(y_test).tolist()}")

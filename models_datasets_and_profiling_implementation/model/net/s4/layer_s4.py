@@ -991,6 +991,7 @@ class SSMKernelDiag(SSMKernel):
 
     def __init__(
         self,
+        active_idx: torch.Tensor,
         disc: str = 'zoh',  # Change to 'bilinear' to match S4, but should make little difference either way
         dt_fast: bool = False,
         real_transform: str = 'exp',
@@ -998,7 +999,6 @@ class SSMKernelDiag(SSMKernel):
         bandlimit: Optional[float] = None,
         backend: str = 'cuda',
         is_real: bool = False,
-        active_idx: Optional[torch.Tensor] = None,  # Optionally specify a subset of the H SSMs to use (for ablations)
         **kwargs,
     ):
         # Special case: for real-valued, d_state semantics change
@@ -1012,7 +1012,7 @@ class SSMKernelDiag(SSMKernel):
         self.bandlimit = bandlimit
         self.backend = backend
         self.is_real = is_real
-        self.active_idx = active_idx if active_idx is not None else torch.arange(self.H)
+        self.active_idx = active_idx
 
         # Initialize dt, A, B, C
         inv_dt = self.init_dt()
@@ -1020,15 +1020,14 @@ class SSMKernelDiag(SSMKernel):
         # Note that in the Diag case, P will be ignored
         # The DPLR case subclasses this and uses P
 
-        if self.active_idx is not None:
-            active_idx = self.active_idx.to(A.device)
-            A = A.index_select(0, active_idx)
-            B = B.index_select(0, active_idx)
-            C = C.index_select(1, active_idx)
-            inv_dt = inv_dt.index_select(0, active_idx)
-            P = P.index_select(1, active_idx)
-            self.H = len(active_idx)
-            self.n_ssm = self.H
+        active_idx = self.active_idx.to(A.device)
+        A = A.index_select(0, active_idx)
+        B = B.index_select(0, active_idx)
+        C = C.index_select(1, active_idx)
+        inv_dt = inv_dt.index_select(0, active_idx)
+        P = P.index_select(1, active_idx)
+        self.H = len(active_idx)
+        self.n_ssm = self.H
 
         self.register_params(A, B, C, inv_dt, P)
 
@@ -1655,6 +1654,7 @@ class FFTConv(nn.Module):
     def __init__(
         self,
         d_model,
+        active_idx,
         l_max=None,
         channels=1,
         swap_channels=False,
@@ -1666,7 +1666,6 @@ class FFTConv(nn.Module):
         drop_kernel=0.0,
         mode='dplr',
         kernel=None,
-        active_idx=None,  # Optional LongTensor of active H indices for structured pruning
         **kernel_args,
     ):
         super().__init__()
@@ -1679,19 +1678,14 @@ class FFTConv(nn.Module):
         self.swap_channels = swap_channels
 
         # --- Gestione active_idx ---
-        if active_idx is not None:
-            if isinstance(active_idx, list):
-                active_idx = torch.tensor(active_idx, dtype=torch.long)
-            self.active_idx = active_idx
-            self.pruned_idx = torch.tensor(
-                [i for i in range(d_model) if i not in active_idx],
-                dtype=torch.long
-            )
-            self.d_model_active = len(active_idx)
-        else:
-            self.active_idx = None
-            self.pruned_idx = None
-            self.d_model_active = d_model
+        if isinstance(active_idx, list):
+            active_idx = torch.tensor(active_idx, dtype=torch.long)
+        self.active_idx = active_idx
+        self.pruned_idx = torch.tensor(
+            [i for i in range(d_model) if i not in active_idx],
+            dtype=torch.long
+        )
+        self.d_model_active = len(active_idx)
 
         # --- Gestione canali per GLU ---
         channels_eff = channels
@@ -1701,11 +1695,8 @@ class FFTConv(nn.Module):
 
         # --- Parametro D ---
         self.D = torch.randn(channels_eff, d_model)
-        if self.active_idx is not None:
-            active_idx = self.active_idx.to(self.D.device)
-            self.D = nn.Parameter(self.D[:, active_idx])
-        else:
-            self.D = nn.Parameter(self.D)
+        active_idx = self.active_idx.to(self.D.device)
+        self.D = nn.Parameter(self.D[:, active_idx])
 
         # --- Adatta canali se bidirezionale ---
         if self.bidirectional:
@@ -1736,7 +1727,7 @@ class FFTConv(nn.Module):
         #print("Input shape:", x.shape)
 
         # Seleziona solo i canali attivi per l'SSM
-        x_active = x[:, self.active_idx, :] if self.active_idx is not None else x
+        x_active = x[:, self.active_idx, :]
 
         # ---- Calcolo SSM solo sui canali attivi ----
         l_kernel = L if self.L is None else min(L, round(self.L / rate))
@@ -1764,8 +1755,7 @@ class FFTConv(nn.Module):
         y[:, :, self.active_idx, :] = y_active
 
         # Copia diretta per i canali prunati
-        if self.active_idx is not None:
-            y[:, 0, self.pruned_idx, :] = x[:, self.pruned_idx, :]
+        y[:, 0, self.pruned_idx, :] = x[:, self.pruned_idx, :]
 
         # Dropout e reshape finale
         y = self.drop(y)
@@ -1828,6 +1818,7 @@ class S4Block(nn.Module):
     def __init__(
         self,
         d_model,
+        active_idx,
         bottleneck=None,
         gate=None,
         gate_act=None,
@@ -1839,7 +1830,6 @@ class S4Block(nn.Module):
         dropout=0.0,
         tie_dropout=False,
         transposed=True,
-        active_idx=None, # For structured pruning of model dimension; should be a 1D LongTensor of active indices along H dimension. If None, all dimensions are active.
         **layer_args,  # Arguments into inner layer (e.g. FFTConv)
     ):
         super().__init__()

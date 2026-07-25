@@ -32,7 +32,7 @@ class ModelTest:
         model_name, dataset_name = basename_split[0], basename_split[1]
 
         dataset = DatasetFactory(dataset_name=dataset_name, batch_size=batch_size, valsplit=valsplit, num_workers=num_workers).get_dataset()
-        num_classes = dataset.get_output_shape()[-1]
+        num_classes = dataset.num_classes
 
         ckpt = torch.load(model_path, map_location=get_device())
         if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
@@ -43,7 +43,8 @@ class ModelTest:
         model = NetFactory(
             model_name=model_name,
             dataset_name=dataset_name,
-            vocab_size=dataset.vocab_size if hasattr(dataset, 'vocab_size') else dataset.input_shape[-1],
+            vocab_size=dataset.vocab_size,
+            input_size=dataset.input_size,
             d_model=d_model, 
             d_state=d_state,
             depth=depth,
@@ -51,7 +52,8 @@ class ModelTest:
             num_classes=num_classes,
             norm=norm,
             pre_norm=pre_norm,
-            active_idx_layers=active_idx_layers
+            active_idx_layers=active_idx_layers,
+            dual_stream=dataset.dual_stream
         ).get_net()
         
         if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
@@ -67,7 +69,7 @@ class ModelTest:
 
     def run(self):
         self.model_train.valloader = self.model_train.dataset.get_testloader()
-        if self.dataset_name == "ecg":
+        if self.dataset.multilabel:
             accuracy, f1 = self.test_step()
             print("[Test] test_accuracy: {:.3f}, test_f1: {:.3f}".format(accuracy, f1))
             return f1
