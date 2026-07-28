@@ -396,13 +396,11 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
 
         # Rimuovi checkpoint intermedi
         seed_folder = os.path.join(f"./{checkpoint_folder}")
+        prefix = f"{model_name}_{dataset_name}_seed"
+        suffix = f"_pruned_{int(perc*100)}%.pth"
         for filename in os.listdir(seed_folder):
-            if "seed" in filename:
-                file_path = os.path.join(seed_folder, filename)
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-                else:
-                    raise ValueError(f"Il percorso {file_path} non è un file.")
+            if filename.startswith(prefix) and filename.endswith(suffix):
+                os.remove(os.path.join(seed_folder, filename))
 
     print(f"\n=== ACCURACY MIGLIORI PER OGNI STEP ===")
     for perc, acc in accuracies.items():

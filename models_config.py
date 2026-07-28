@@ -79,7 +79,7 @@ MODELS_CONFIG = {
             "norm": "BN",
             "pre-norm": True,
             "dropout": 0.0,
-            "lr": 0.01,
+            "lr": 0.002,
             "batch_size": 64,
             "epochs": 20,
             "wd": 0.05,
