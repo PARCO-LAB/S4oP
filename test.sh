@@ -5,8 +5,8 @@
 #SBATCH --cpus-per-task=16 
 #SBATCH --mem=128G
 #SBATCH --time=96:00:00      
-#SBATCH --output=test/%x_%j.out   
-#SBATCH --error=test/%x_%j.err    
+#SBATCH --output=unstructured/%x_%j.out   
+#SBATCH --error=unstructured/%x_%j.err    
 
 set -euo pipefail
 

@@ -18,19 +18,20 @@ class MemoryProfile:
         for _ in range(5):
             _ = model(example_input)
 
-        torch.cuda.synchronize()
-        torch.cuda.reset_peak_memory_stats()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+            torch.cuda.reset_peak_memory_stats()
+            _ = model(example_input)
+            torch.cuda.synchronize()
+            peak = {
+                "peak_allocated_MB": torch.cuda.max_memory_allocated() / MB,
+                "peak_reserved_MB": torch.cuda.max_memory_reserved() / MB,
+            }
+        else:
+            _ = model(example_input)
+            peak = {"peak_allocated_MB": float("nan"), "peak_reserved_MB": float("nan")}
 
-        _ = model(example_input)
-        torch.cuda.synchronize()
-
-        sizes = self.model_size_MB(model)
-
-        self.data[name] = {
-            "peak_allocated_MB": torch.cuda.max_memory_allocated() / MB,
-            "peak_reserved_MB": torch.cuda.max_memory_reserved() / MB,
-            **sizes,
-        }
+        self.data[name] = {**peak, **self.model_size_MB(model)}
 
     def model_size_MB(self, model):
         MB = 1024 ** 2

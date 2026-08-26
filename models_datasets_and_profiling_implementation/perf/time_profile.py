@@ -41,30 +41,35 @@ class TimeProfile:
 
 
     def run(self, name, function, iterations=None):
-        if iterations is None: 
+        if iterations is None:
             iterations = self.iterations
+        use_cuda = torch.cuda.is_available()
+        timings = np.zeros(iterations)
 
-        starter, ender = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
-        timings = np.zeros((iterations, 1))
-
-        for _ in range(50): # warmup
+        for _ in range(50):  # warmup
             ret = function()
 
-        for i in range(iterations):
-            starter.record()
-            ret = function()
-            ender.record()
-            torch.cuda.synchronize()
-            curr_time = starter.elapsed_time(ender)
-            timings[i] = curr_time * 1e6
-        
-        self.data[name]["tot"] = np.sum(timings.flatten())
-        self.data[name]["mean"] = np.mean(timings.flatten())
-        self.data[name]["median"] = np.median(timings.flatten())
-        self.data[name]["std"] = np.std(timings.flatten())
-        self.data[name]["time_vec"] = timings.flatten().tolist()
+        if use_cuda:
+            starter = torch.cuda.Event(enable_timing=True)
+            ender = torch.cuda.Event(enable_timing=True)
+            for i in range(iterations):
+                starter.record()
+                ret = function()
+                ender.record()
+                torch.cuda.synchronize()
+                timings[i] = starter.elapsed_time(ender) * 1e6   # ms -> ns
+        else:
+            for i in range(iterations):
+                t0 = time.perf_counter_ns()
+                ret = function()
+                timings[i] = time.perf_counter_ns() - t0
+
+        self.data[name]["tot"] = np.sum(timings)
+        self.data[name]["mean"] = np.mean(timings)
+        self.data[name]["median"] = np.median(timings)
+        self.data[name]["std"] = np.std(timings)
+        self.data[name]["time_vec"] = timings.tolist()
         return ret
-
 
     def info(self, name=None, header=True):
         if header: 

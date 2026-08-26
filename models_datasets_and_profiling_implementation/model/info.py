@@ -125,6 +125,10 @@ class ModelInfo:
 
         augment_input_output(self.model, input_sample)
 
+        for _, m in self.model.named_modules():
+            m._input = m._output = None
+        del input_sample
+
     def torchviz(self, output_dir="."):
         if self.vocab_size is not None:
             input = torch.randint(0, self.vocab_size, self.input_shape, dtype=torch.long).to(utils.get_device())

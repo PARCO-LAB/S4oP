@@ -282,7 +282,7 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
 
             # Pruning incrementale
             n_pruned_perc = get_pruning_idx_exponential(perc, n_layers, H)
-            n_pruned = [n_pruned_perc[i] - (H - len(prev_active[i])) for i in range(n_layers)]
+            n_pruned = [max(0, n_pruned_perc[i] - (H - len(prev_active[i]))) for i in range(n_layers)]
 
             active_idx = [[] for _ in range(n_layers)]
             for i in range(n_layers):

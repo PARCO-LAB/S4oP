@@ -104,7 +104,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             vocab_size=vocab_size,
             input_size=input_size,
             seq_len=seq_len, 
-            batch_size=100,
+            batch_size=1,
             dual_stream=dual_stream,
             dataset_name=dataset_name
         )
@@ -155,7 +155,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
             vocab_size=vocab_size,
             input_size=input_size,
             seq_len=seq_len, 
-            batch_size=100,
+            batch_size=1,
             dual_stream=dual_stream,
             dataset_name=dataset_name
         )

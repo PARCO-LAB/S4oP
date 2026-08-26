@@ -8,7 +8,7 @@ from models_config import *
 from models_datasets_and_profiling_implementation.model import ModelTrain, ModelTest, ModelInfo, ModelProfile
 from models_datasets_and_profiling_implementation.model.utils import set_benchmark, set_seed, setup_optimizer
 
-set_seed(7)
+set_seed(123)
 set_benchmark(False)
 
 def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
@@ -21,21 +21,24 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
         model_path = os.path.join(f"./{checkpoints_folder}", f"{model_name}_{dataset_name}_best.pth")
     else:
         model_path = os.path.join(f"./{checkpoints_folder}", f"{pruned_model_name}.pth")
-    
+
+    # d_model
+    H = config[f"{model_name}"][f"{dataset_name}"]["features"]
+    d_model = H
+    if model_name == "mamba":
+        H = 2 * H
+
     # Se il modello non esiste, lo alleno
     if (not os.path.exists(model_path)) and (pruned_model_name is None):
 
         # Creazione modello
-        H = config[f"{model_name}"][f"{dataset_name}"]["features"]
-        if model_name == "mamba":
-            H = 2 * H
         model_train = ModelTrain.from_scratch(
             model_name=model_name, 
             dataset_name=dataset_name, 
             batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
             valsplit=config["val_split"], 
             num_workers=config["num_workers"], 
-            d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
+            d_model=d_model,
             d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
             depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
             dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
@@ -63,7 +66,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
                                         batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
                                         valsplit=config["val_split"],
                                         num_workers=config["num_workers"], 
-                                        d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
+                                        d_model=d_model,
                                         d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
                                         depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
                                         dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
@@ -108,7 +111,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
                                         batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
                                         valsplit=config["val_split"],
                                         num_workers=config["num_workers"], 
-                                        d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
+                                        d_model=d_model,
                                         d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
                                         depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
                                         dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],
@@ -151,7 +154,7 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
                                         batch_size=config[f"{model_name}"][f"{dataset_name}"]["batch_size"], 
                                         valsplit=config["val_split"],
                                         num_workers=config["num_workers"], 
-                                        d_model=config[f"{model_name}"][f"{dataset_name}"]["features"],
+                                        d_model=d_model,
                                         d_state=config[f"{model_name}"][f"{dataset_name}"]["d_state"],
                                         depth=config[f"{model_name}"][f"{dataset_name}"]["depth"],
                                         dropout=config[f"{model_name}"][f"{dataset_name}"]["dropout"],

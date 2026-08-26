@@ -1,20 +1,20 @@
 #!/bin/bash
-#SBATCH --job-name=retrieval_mamba
+#SBATCH --job-name=ecg
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpuRTX     
 #SBATCH --cpus-per-task=16 
 #SBATCH --mem=128G
 #SBATCH --time=96:00:00      
-#SBATCH --output=test/%x_%j.out   
-#SBATCH --error=test/%x_%j.err    
+#SBATCH --output=s4op_ranking/%x_%j.out   
+#SBATCH --error=s4op_ranking/%x_%j.err    
 
 set -euo pipefail
 
-MODEL="s4d"
-DATASET="retrieval"
-CKPT_FOLDER="test"
-CKPT_PRUNED="test"
-mkdir -p test
+MODEL="mamba"
+DATASET="ecg"
+CKPT_FOLDER="checkpoints1"
+CKPT_PRUNED="s4op_ranking"
+mkdir -p s4op_ranking
 module load cuda/12.8 
 
 echo "==================== INFO NODO ===================="
@@ -35,12 +35,12 @@ PYEOF
 echo "==================================================="
 
 # PRUNING
-# echo ">>> python3 exec_pruning.py -m ${MODEL} -d ${DATASET} -b ${CKPT_FOLDER} -c ${CKPT_PRUNED}"
-# srun python3 exec_pruning.py -m "${MODEL}" -d "${DATASET}" -b "${CKPT_FOLDER}" -c "${CKPT_PRUNED}"
+# echo ">>> python3 s4op.py -m ${MODEL} -d ${DATASET} -b ${CKPT_FOLDER} -c ${CKPT_PRUNED}"
+# srun python3 s4op.py -m "${MODEL}" -d "${DATASET}" -b "${CKPT_FOLDER}" -c "${CKPT_PRUNED}"
 
 # TRAIN/TEST BASE MODEL
-echo ">>> python3 starting_model.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
-srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
+# echo ">>> python3 starting_model.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
+# srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
 
 # TEST PRUNED MODEL
 # PRUNED_MODEL="mamba_retrieval_pruned_90%"
@@ -48,8 +48,8 @@ srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
 # srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_PRUNED}" -p "${PRUNED_MODEL}"
 
 # TEST LATENCY/MEMORY FOOTPRINT BASE MODEL
-# echo ">>> python3 test_latency.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
-# srun python3 test_latency.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
+# echo ">>> python3 latency.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
+# srun python3 latency.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
 
 # TEST LATENCY/MEMORY FOOTPRINT PRUNED MODEL
 # PRUNED_MODELS=(
@@ -61,8 +61,25 @@ srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
 # )
 
 # for PRUNED_MODEL in "${PRUNED_MODELS[@]}"; do
-#     echo ">>> python3 test_latency.py -m ${MODEL} -d ${DATASET} -f ${CKPT_PRUNED} -p ${PRUNED_MODEL}"
-#     srun python3 test_latency.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_PRUNED}" -p "${PRUNED_MODEL}"
+#     echo ">>> python3 latency.py -m ${MODEL} -d ${DATASET} -f ${CKPT_PRUNED} -p ${PRUNED_MODEL}"
+#     srun python3 latency.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_PRUNED}" -p "${PRUNED_MODEL}"
 # done
+
+# DATASETS=(
+#     "imdb"
+#     "image"
+#     "ecg"
+#     "listops"
+#     "retrieval"
+# )
+
+# for DAT in "${DATASETS[@]}"; do
+#     echo ">>> python3 latency.py -m ${MODEL} -d ${DAT} -f ${CKPT_FOLDER}"
+#     srun python3 latency.py -m "${MODEL}" -d "${DAT}" -f "${CKPT_FOLDER}"
+# done
+
+# S4oP RANKING
+echo ">>> python3 s4op_ranking.py -m ${MODEL} -d ${DATASET} -b ${CKPT_FOLDER} -c ${CKPT_PRUNED}"
+srun python3 s4op_ranking.py -m "${MODEL}" -d "${DATASET}" -b "${CKPT_FOLDER}" -c "${CKPT_PRUNED}"
 
 echo ">>> FINITO (exit code $?)"
