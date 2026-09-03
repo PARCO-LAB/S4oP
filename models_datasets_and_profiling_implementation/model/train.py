@@ -251,5 +251,5 @@ class ModelTrain:
         #torch.save(self.model.state_dict(), path) 
         torch.save({
             "model_state_dict": self.model.state_dict(),
-            "active_idx_layers": self.model.active_idx_layers
+            "active_idx_layers": self.model.active_idx_layers if self.model_name != "mamba2" else self.model.active_heads_layers
         }, path)

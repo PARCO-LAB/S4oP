@@ -263,12 +263,12 @@ class Mamba(nn.Module):
         device = self.out_proj.weight.device
         conv_dtype = self.conv1d.weight.dtype if dtype is None else dtype
         conv_state = torch.zeros(
-            batch_size, self.d_model * self.expand, self.d_conv, device=device, dtype=conv_dtype
+            batch_size, self.d_inner, self.d_conv, device=device, dtype=conv_dtype
         )
         ssm_dtype = self.dt_proj.weight.dtype if dtype is None else dtype
         # ssm_dtype = torch.float32
         ssm_state = torch.zeros(
-            batch_size, self.d_model * self.expand, self.d_state, device=device, dtype=ssm_dtype
+            batch_size, self.d_inner, self.d_state, device=device, dtype=ssm_dtype
         )
         return conv_state, ssm_state
 
@@ -278,14 +278,14 @@ class Mamba(nn.Module):
             batch_shape = (batch_size,)
             conv_state = torch.zeros(
                 batch_size,
-                self.d_model * self.expand,
+                self.d_inner,
                 self.d_conv,
                 device=self.conv1d.weight.device,
                 dtype=self.conv1d.weight.dtype,
             )
             ssm_state = torch.zeros(
                 batch_size,
-                self.d_model * self.expand,
+                self.d_inner,
                 self.d_state,
                 device=self.dt_proj.weight.device,
                 dtype=self.dt_proj.weight.dtype,

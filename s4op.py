@@ -226,6 +226,62 @@ def convert_layer_mamba(masked_layer, structural_layer, local_idx=None):
     if masked_layer.out_proj.bias is not None:
         structural_layer.out_proj.bias.data.copy_(masked_layer.out_proj.bias.data)
 
+def convert_layer_mamba2(masked_layer, structural_layer, local_heads=None):
+    if local_heads is None:
+        structural_layer.load_state_dict(masked_layer.state_dict())
+        return
+
+    device = masked_layer.in_proj.weight.device
+    heads = torch.as_tensor(sorted(local_heads), dtype=torch.long, device=device)
+
+    P = masked_layer.headdim
+    d_inner_base = masked_layer.d_inner
+    n_bc = 2 * masked_layer.ngroups * masked_layer.d_state
+
+    # canali appartenenti alle teste tenute
+    ch = (heads.unsqueeze(1) * P + torch.arange(P, device=device)).reshape(-1)
+    bc = torch.arange(n_bc, dtype=torch.long, device=device)
+
+    # in_proj: [z | x | B | C | dt]  -> B e C restano interi
+    rows_in = torch.cat([
+        ch,                                # z
+        d_inner_base + ch,                 # x
+        2 * d_inner_base + bc,             # B, C
+        2 * d_inner_base + n_bc + heads,   # dt: una riga per testa
+    ])
+    structural_layer.in_proj.weight.data.copy_(
+        masked_layer.in_proj.weight.data.index_select(0, rows_in))
+    if masked_layer.in_proj.bias is not None:
+        structural_layer.in_proj.bias.data.copy_(
+            masked_layer.in_proj.bias.data.index_select(0, rows_in))
+
+    # conv1d depthwise: [x | B | C]
+    rows_conv = torch.cat([ch, d_inner_base + bc])
+    structural_layer.conv1d.weight.data.copy_(
+        masked_layer.conv1d.weight.data.index_select(0, rows_conv))
+    if masked_layer.conv1d.bias is not None:
+        structural_layer.conv1d.bias.data.copy_(
+            masked_layer.conv1d.bias.data.index_select(0, rows_conv))
+
+    # parametri per-testa
+    structural_layer.A_log.data.copy_(masked_layer.A_log.data.index_select(0, heads))
+    structural_layer.dt_bias.data.copy_(masked_layer.dt_bias.data.index_select(0, heads))
+    structural_layer.D.data.copy_(masked_layer.D.data.index_select(0, heads))
+
+    # RMSNormGated: un peso per canale
+    structural_layer.norm.weight.data.copy_(
+        masked_layer.norm.weight.data.index_select(0, ch))
+
+    # out_proj: colonne = canali attivi, output resta d_model
+    structural_layer.out_proj.weight.data.copy_(
+        masked_layer.out_proj.weight.data.index_select(1, ch))
+    if masked_layer.out_proj.bias is not None:
+        structural_layer.out_proj.bias.data.copy_(masked_layer.out_proj.bias.data)
+
+    if masked_layer.learnable_init_states:
+        structural_layer.init_states.data.copy_(
+            masked_layer.init_states.data.index_select(0, heads))
+
 def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_folder):
 
     config = MODELS_CONFIG
@@ -242,6 +298,8 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
     H = config[model_name][dataset_name]["features"]
     if model_name == "mamba":
         H = 2 * H   # d_inner = expand * d_model (expand=2)
+    elif model_name == "mamba2":
+        H = (2 * H) // config[f"{model_name}"][f"{dataset_name}"]["headdim"]
     n_layers = config[model_name][dataset_name]["depth"]
 
     accuracies = {}
@@ -288,9 +346,9 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
             for i in range(n_layers):
                 available = prev_active[i]
                 idx_to_prune = random.sample(available, n_pruned[i])
-                new_active = list(set(available) - set(idx_to_prune))
+                new_active = sorted(set(available) - set(idx_to_prune))
                 active_idx[i] = new_active
-                print(f"[Layer {i}]: canali rimanenti {len(active_idx[i])}/{H}")
+                print(f"[Layer {i}]: teste rimanenti {len(active_idx[i])}/{H}")
         
             # Costruzione modello strutturale
             model = NetFactory(
@@ -325,11 +383,16 @@ def prune_and_finetune(model_name, dataset_name, base_model_folder, checkpoint_f
                     mapping = {int(g):j for j,g in enumerate(prev_active_idx[i])}
                     local_idx = [mapping[int(g)] for g in active_idx[i]]
                     convert_layer_mamba(lm, ls, local_idx)
-            else:
+            elif model_name == "s4":
                 for i, (lm, ls) in enumerate(zip(prev_model.model.s4_layers, model.s4_layers)):
                     mapping = {int(g):j for j,g in enumerate(prev_active_idx[i])}
                     local_idx = [mapping[int(g)] for g in active_idx[i]]
                     convert_layer_s4(lm, ls, local_idx)
+            elif model_name == "mamba2":
+                for i, (lm, ls) in enumerate(zip(prev_model.model.mamba_layers, model.mamba_layers)):
+                    mapping = {int(g): j for j, g in enumerate(prev_active_idx[i])}
+                    local_heads = [mapping[int(g)] for g in active_idx[i]]
+                    convert_layer_mamba2(lm, ls, local_heads)
 
             # === COPY NORMS ===
             for nm, ns in zip(prev_model.model.norms, model.norms):

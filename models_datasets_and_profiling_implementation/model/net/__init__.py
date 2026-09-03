@@ -97,6 +97,32 @@ class NetFactory:
                                         active_idx_layers=active_idx_layers,
                                         norm=norm,
                                         pre_norm=pre_norm)
+        elif model_name == "mamba2":
+            from . import mamba 
+            if dual_stream:
+                self.net = mamba.RetrievalMamba2(vocab_size=vocab_size,
+                                                input_size=input_size,
+                                                dataset_name=dataset_name,
+                                                d_model=d_model,
+                                                d_state=d_state,
+                                                depth=depth,
+                                                dropout=dropout,
+                                                num_classes=num_classes,
+                                                active_heads_layers=active_idx_layers,
+                                                norm=norm,
+                                                pre_norm=pre_norm)
+            else:
+                self.net = mamba.Mamba2(vocab_size=vocab_size,
+                                        input_size=input_size,
+                                        dataset_name=dataset_name,
+                                        d_model=d_model,
+                                        d_state=d_state,
+                                        depth=depth,
+                                        dropout=dropout,
+                                        num_classes=num_classes,
+                                        active_heads_layers=active_idx_layers,
+                                        norm=norm,
+                                        pre_norm=pre_norm)
         else:
             raise ValueError(f"Model {model_name} not recognized")
 

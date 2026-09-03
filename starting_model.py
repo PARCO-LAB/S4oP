@@ -8,7 +8,7 @@ from models_config import *
 from models_datasets_and_profiling_implementation.model import ModelTrain, ModelTest, ModelInfo, ModelProfile
 from models_datasets_and_profiling_implementation.model.utils import set_benchmark, set_seed, setup_optimizer
 
-set_seed(123)
+set_seed(7)
 set_benchmark(False)
 
 def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
@@ -27,6 +27,8 @@ def main(model_name, dataset_name, checkpoints_folder, pruned_model_name):
     d_model = H
     if model_name == "mamba":
         H = 2 * H
+    elif model_name == "mamba2":
+        H = (2 * H) // config[f"{model_name}"][f"{dataset_name}"]["headdim"]
 
     # Se il modello non esiste, lo alleno
     if (not os.path.exists(model_path)) and (pruned_model_name is None):
