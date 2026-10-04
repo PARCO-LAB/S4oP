@@ -38,11 +38,39 @@ PRUNING_CONFIG = {
         },
         "retrieval":
         {
-            "finetune_epochs": 4,
+            "finetune_epochs": 2,
             "lr": 1e-4,
             "weight_decay": 1e-5,
             "early_stopping": 1
-        }
+        },
+        "enhancer":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "promoter":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "histone":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "dnase":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
     },
     "s4d":
     {
@@ -87,8 +115,36 @@ PRUNING_CONFIG = {
             "lr": 1e-4,
             "weight_decay": 1e-5,
             "early_stopping": 1
-        }
-    },
+        },
+        "enhancer":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "promoter":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "histone":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "dnase":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+},
     "mamba":
     {
         "listops":
@@ -132,7 +188,35 @@ PRUNING_CONFIG = {
             "lr": 1e-4,
             "weight_decay": 1e-5,
             "early_stopping": 2
-        }
+        },
+        "enhancer":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "promoter":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "histone":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "dnase":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
     },
     "mamba2":
     {
@@ -177,8 +261,38 @@ PRUNING_CONFIG = {
             "lr": 1e-4,
             "weight_decay": 1e-5,
             "early_stopping": 2
-        }
+        },
+        "enhancer":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "promoter":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "histone":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
+        "dnase":
+        {
+            "finetune_epochs": 2,
+            "lr": 1e-4,
+            "weight_decay": 1e-5,
+            "early_stopping": 1
+        },
     },
+    # "perc": [0.1, 0.3, 0.5, 0.7, 0.9],
+    # "seeds": [7, 42, 123, 2024, 31650]
     "perc": [0.1, 0.3, 0.5, 0.7, 0.9],
-    "seeds": [7, 42, 123, 2024, 31650]
+    "seeds": [7, 42, 123]
 }

@@ -9,6 +9,7 @@ class DatasetInterface:
         self.vocab_size = None
         self.seq_len = None
         self.input_size = None
+        self.metric = None
         self.num_classes = None
         self.trainset = None
         self.valset = None

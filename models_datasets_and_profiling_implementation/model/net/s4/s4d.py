@@ -19,10 +19,12 @@ class S4D(nn.Module):
         pre_norm,
         d_state,
         active_idx_layers,
+        pool="mean",
     ):
         super().__init__()
 
         self.pre_norm = pre_norm
+        self.pool = pool
         self.active_idx_layers = active_idx_layers
         self.dataset_name = dataset_name
 
@@ -85,6 +87,8 @@ class S4D(nn.Module):
         #     x = (x * m).sum(dim=-1) / m.sum(dim=-1).clamp(min=1.0)
         # else:
         #     x = x.mean(dim=-1) # [B, H]
+        if self.pool == "causal_half":
+            x = x[:, :, x.shape[-1] // 2:]
         x = x.mean(dim=-1) # [B, H]
         return x
 

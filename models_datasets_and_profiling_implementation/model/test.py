@@ -1,11 +1,11 @@
 import os
 import torch
-from .train import ModelTrain
+from .train import ModelTrain, format_metrics
 from ..dataset import DatasetFactory
 from .net import NetFactory
 from .utils import *
 
-class ModelTest: 
+class ModelTest:
     def __init__(self, model, dataset):
         self.model_name = model.name
         self.dataset_name = dataset.name
@@ -16,10 +16,10 @@ class ModelTest:
 
     @staticmethod
     def from_pth(
-        model_path, 
-        batch_size, 
-        valsplit, 
-        num_workers, 
+        model_path,
+        batch_size,
+        valsplit,
+        num_workers,
         d_model,
         d_state,
         depth,
@@ -45,7 +45,7 @@ class ModelTest:
             dataset_name=dataset_name,
             vocab_size=dataset.vocab_size,
             input_size=dataset.input_size,
-            d_model=d_model, 
+            d_model=d_model,
             d_state=d_state,
             depth=depth,
             dropout=dropout,
@@ -53,28 +53,23 @@ class ModelTest:
             norm=norm,
             pre_norm=pre_norm,
             active_idx_layers=active_idx_layers,
-            dual_stream=dataset.dual_stream
+            dual_stream=dataset.dual_stream,
+            pool=getattr(dataset, "pool", "mean")
         ).get_net()
-        
+
         if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
             model.load_state_dict(ckpt["model_state_dict"], strict=True)
-        else:    
+        else:
             model.load_state_dict(torch.load(model_path, map_location=get_device()), strict=True)
         model.name = model_name
 
         return ModelTest(model, dataset)
 
     def test_step(self):
-        return self.model_train.val_step()
+        return self.model_train.val_step(loader=self.dataset.get_testloader())
 
     def run(self):
-        self.model_train.valloader = self.model_train.dataset.get_testloader()
-        if self.dataset.multilabel:
-            accuracy, f1 = self.test_step()
-            print("[Test] test_accuracy: {:.3f}, test_f1: {:.3f}".format(accuracy, f1))
-            return f1
-        else:
-            accuracy = self.test_step()
-            print("[Test] test_accuracy: {:.3f}".format(accuracy))
-            return accuracy
-        
+        metrics = self.test_step()
+        print("[Test] {}".format(format_metrics(metrics, prefix="test_")))
+        # restituisce la metrica su cui il dataset chiede di essere valutato
+        return metrics[self.model_train.metric]

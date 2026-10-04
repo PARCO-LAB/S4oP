@@ -23,12 +23,14 @@ class Mamba(nn.Module):
         norm,
         pre_norm,
         d_state,
+        pool="mean",
         d_conv=4,
         expand=2,
     ):
         super().__init__()
 
         self.pre_norm = pre_norm
+        self.pool = pool
         self.active_idx_layers = active_idx_layers
         self.dataset_name = dataset_name
 
@@ -95,7 +97,12 @@ class Mamba(nn.Module):
                 x = self._apply_norm(norm, x)
 
         # Pooling mean
-        x = self.norm_f(x)           # normalizzazione finale -> [B, L, H]
+        x = self.norm_f(x)               # normalizzazione finale -> [B, L, H]
+        if self.pool == "causal_half":   # con un modello causale e per i dataset genomici, solo la seconda meta' ha visto il blocco centrale
+            half = x.shape[1] // 2
+            x = x[:, half:, :]
+            if pad_mask is not None:
+                pad_mask = pad_mask[:, half:]
         if pad_mask is not None:
             m = pad_mask.unsqueeze(-1).to(x.dtype)            # [B, L, 1]
             x = (x * m).sum(dim=1) / m.sum(dim=1).clamp(min=1.0)

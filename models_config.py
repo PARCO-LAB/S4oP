@@ -84,7 +84,63 @@ MODELS_CONFIG = {
             "epochs": 20,
             "wd": 0.05,
             "patience": 5
-        }
+        },
+        "enhancer":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "promoter":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "histone":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "dnase":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
     },
     "s4":
     {
@@ -171,7 +227,63 @@ MODELS_CONFIG = {
             "epochs": 20,
             "wd": 0.0,
             "patience": 5
-        }
+        },
+        "enhancer":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "promoter":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "histone":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "dnase":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
     },
     "mamba":
     {
@@ -256,6 +368,62 @@ MODELS_CONFIG = {
             "lr": 0.0001,
             "batch_size": 16,
             "epochs": 50,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "enhancer":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "promoter":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "histone":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "dnase":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
             "wd": 0.01,
             "patience": 10
         },
@@ -349,6 +517,66 @@ MODELS_CONFIG = {
             "lr": 0.0001,
             "batch_size": 16,
             "epochs": 50,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "enhancer":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "headdim": 16,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "promoter":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "headdim": 16,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "histone":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "headdim": 16,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
+            "wd": 0.01,
+            "patience": 10
+        },
+        "dnase":
+        {
+            "d_state": 64,
+            "depth": 6,
+            "features": 256,
+            "headdim": 16,
+            "norm": "LN",
+            "pre-norm": True,
+            "dropout": 0.1,
+            "lr": 0.002,
+            "batch_size": 64,
+            "epochs": 30,
             "wd": 0.01,
             "patience": 10
         },

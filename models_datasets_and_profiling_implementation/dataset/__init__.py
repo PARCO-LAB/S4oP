@@ -4,6 +4,7 @@ from .pathfinder import *
 from .ecg import *
 from .image import *
 from .retrieval import *
+from .genomics import *
 
 __all__ = {
     "listops": LRAListOps,
@@ -11,7 +12,11 @@ __all__ = {
     "pathfinder": LRAPathfinder,
     "ecg": ECGDataset,
     "image": ImageDataset,
-    "retrieval": RetrievalDataset
+    "retrieval": RetrievalDataset,
+    "promoter": LRBPromoter,
+    "enhancer": LRBEnhancer,
+    "histone": LRBHistone,
+    "dnase": LRBDnase,
 }
 
 class DatasetFactory: 

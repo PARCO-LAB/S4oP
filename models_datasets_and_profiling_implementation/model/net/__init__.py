@@ -17,7 +17,8 @@ class NetFactory:
         norm,
         pre_norm,
         active_idx_layers,
-        dual_stream = False
+        dual_stream = False,
+        pool = "mean"
     ):
         if model_name == "s4d":
             from . import s4
@@ -32,7 +33,8 @@ class NetFactory:
                                             num_classes=num_classes,
                                             active_idx_layers=active_idx_layers,
                                             norm=norm,
-                                            pre_norm=pre_norm)
+                                            pre_norm=pre_norm,
+                                            pool=pool)
             else:
                 self.net = s4.S4D(vocab_size=vocab_size,
                                     input_size=input_size,
@@ -44,7 +46,8 @@ class NetFactory:
                                     num_classes=num_classes,
                                     active_idx_layers=active_idx_layers,
                                     norm=norm,
-                                    pre_norm=pre_norm)
+                                    pre_norm=pre_norm,
+                                    pool=pool)
         elif model_name == "s4":
             from . import s4
             if dual_stream:
@@ -58,7 +61,8 @@ class NetFactory:
                                             num_classes=num_classes,
                                             active_idx_layers=active_idx_layers,
                                             norm=norm,
-                                            pre_norm=pre_norm)
+                                            pre_norm=pre_norm,
+                                            pool=pool)
             else:
                 self.net = s4.S4(vocab_size=vocab_size,
                                     input_size=input_size,
@@ -70,7 +74,8 @@ class NetFactory:
                                     num_classes=num_classes,
                                     active_idx_layers=active_idx_layers,
                                     norm=norm,
-                                    pre_norm=pre_norm)
+                                    pre_norm=pre_norm,
+                                    pool=pool)
         elif model_name == "mamba":
             from . import mamba 
             if dual_stream:
@@ -84,7 +89,8 @@ class NetFactory:
                                                 num_classes=num_classes,
                                                 active_idx_layers=active_idx_layers,
                                                 norm=norm,
-                                                pre_norm=pre_norm)
+                                                pre_norm=pre_norm,
+                                                pool=pool)
             else:
                 self.net = mamba.Mamba(vocab_size=vocab_size,
                                         input_size=input_size,
@@ -96,7 +102,8 @@ class NetFactory:
                                         num_classes=num_classes,
                                         active_idx_layers=active_idx_layers,
                                         norm=norm,
-                                        pre_norm=pre_norm)
+                                        pre_norm=pre_norm,
+                                        pool=pool)
         elif model_name == "mamba2":
             from . import mamba 
             if dual_stream:
@@ -110,7 +117,8 @@ class NetFactory:
                                                 num_classes=num_classes,
                                                 active_heads_layers=active_idx_layers,
                                                 norm=norm,
-                                                pre_norm=pre_norm)
+                                                pre_norm=pre_norm,
+                                                pool=pool)
             else:
                 self.net = mamba.Mamba2(vocab_size=vocab_size,
                                         input_size=input_size,
@@ -122,7 +130,8 @@ class NetFactory:
                                         num_classes=num_classes,
                                         active_heads_layers=active_idx_layers,
                                         norm=norm,
-                                        pre_norm=pre_norm)
+                                        pre_norm=pre_norm,
+                                        pool=pool)
         else:
             raise ValueError(f"Model {model_name} not recognized")
 

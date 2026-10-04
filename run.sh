@@ -1,20 +1,20 @@
 #!/bin/bash
-#SBATCH --job-name=image
+#SBATCH --job-name=histone
 #SBATCH --gres=gpu:1
 #SBATCH --partition=gpuRTX     
 #SBATCH --cpus-per-task=16 
 #SBATCH --mem=128G
 #SBATCH --time=96:00:00
-#SBATCH --output=mamba2/%x_%j.out   
-#SBATCH --error=mamba2/%x_%j.err    
+#SBATCH --output=train_genomics/%x_%j.out   
+#SBATCH --error=train_genomics/%x_%j.err    
 
 set -euo pipefail
 
 MODEL="mamba2"
-DATASET="image"
-CKPT_FOLDER="mamba2"
+DATASET="histone"
+CKPT_FOLDER="checkpoints1"
 CKPT_PRUNED="mamba2"
-mkdir -p mamba2
+mkdir -p train_genomics
 module load cuda/12.8 
 
 echo "==================== INFO NODO ===================="
@@ -35,12 +35,12 @@ PYEOF
 echo "==================================================="
 
 # PRUNING
-echo ">>> python3 s4op.py -m ${MODEL} -d ${DATASET} -b ${CKPT_FOLDER} -c ${CKPT_PRUNED}"
-srun python3 s4op.py -m "${MODEL}" -d "${DATASET}" -b "${CKPT_FOLDER}" -c "${CKPT_PRUNED}"
+# echo ">>> python3 s4op.py -m ${MODEL} -d ${DATASET} -b ${CKPT_FOLDER} -c ${CKPT_PRUNED}"
+# srun python3 s4op.py -m "${MODEL}" -d "${DATASET}" -b "${CKPT_FOLDER}" -c "${CKPT_PRUNED}"
 
 # TRAIN/TEST BASE MODEL
-# echo ">>> python3 starting_model.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
-# srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
+echo ">>> python3 starting_model.py -m ${MODEL} -d ${DATASET} -f ${CKPT_FOLDER}"
+srun python3 starting_model.py -m "${MODEL}" -d "${DATASET}" -f "${CKPT_FOLDER}"
 
 # TEST PRUNED MODEL
 # PRUNED_MODEL="mamba_ecg_pruned_10%"
