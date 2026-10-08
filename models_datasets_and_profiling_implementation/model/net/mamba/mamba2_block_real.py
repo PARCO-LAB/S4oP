@@ -57,36 +57,19 @@ class Mamba2Simple(nn.Module):
         self.expand = expand
         self.headdim = headdim
         assert (self.expand * self.d_model) % self.headdim == 0, f"expand*d_model={self.expand*self.d_model} non divisibile per headdim={self.headdim}"
+        self.nheads_full = (self.expand * self.d_model) // self.headdim
+        self.active_heads = sorted(active_heads)
+        assert len(set(self.active_heads)) == len(self.active_heads), "active_heads contiene duplicati"
+        assert self.active_heads and 0 <= self.active_heads[0] and self.active_heads[-1] < self.nheads_full, f"active_heads fuori range [0, {self.nheads_full})"
         self.ngroups = ngroups
-        # Tutte le teste vengono allocate
-        self.d_inner = self.expand * self.d_model
-        self.nheads = self.d_inner // self.headdim
+        self.nheads = len(self.active_heads) # self.nheads = self.d_inner // self.headdim
+        self.d_inner = self.nheads * self.headdim # self.d_inner = self.expand * self.d_model
         self.dt_limit = dt_limit
         self.learnable_init_states = learnable_init_states
         self.activation = activation
         self.chunk_size = chunk_size
         self.use_mem_eff_path = use_mem_eff_path
         self.layer_idx = layer_idx
- 
-        # --- Teste attive ---
-        if active_heads is None:
-            active_heads = range(self.nheads)
-        elif isinstance(active_heads, torch.Tensor):
-            active_heads = active_heads.flatten().tolist()
-        self.active_heads = sorted(int(h) for h in active_heads)
-
-        head_mask = torch.zeros(self.nheads, dtype=torch.bool)
-        if self.active_heads:
-            head_mask[torch.tensor(self.active_heads, dtype=torch.long)] = True
-        # I canali di x sono ordinati per testa ("(h p)"): canale = testa * headdim + p
-        channel_mask = head_mask.repeat_interleave(self.headdim)  # (d_inner,)
-        if device is not None:
-            head_mask = head_mask.to(device)
-            channel_mask = channel_mask.to(device)
-
-        self.register_buffer("active_head_mask", head_mask, persistent=False)
-        self.register_buffer("active_channel_mask", channel_mask, persistent=False)
-        self.all_active = bool(head_mask.all())
 
         # Order: [z, x, B, C, dt]
         d_in_proj = 2 * self.d_inner + 2 * self.ngroups * self.d_state + self.nheads
@@ -156,7 +139,7 @@ class Mamba2Simple(nn.Module):
         initial_states=repeat(self.init_states, "... -> b ...", b=batch) if self.learnable_init_states else None
         dt_limit_kwargs = {} if self.dt_limit == (0.0, float("inf")) else dict(dt_limit=self.dt_limit)
 
-        if self.use_mem_eff_path and on_gpu and self.all_active:
+        if self.use_mem_eff_path and on_gpu:
             # Fully fused path
             out = mamba_split_conv1d_scan_combined(
                 zxbcdt,
@@ -182,8 +165,6 @@ class Mamba2Simple(nn.Module):
             z, xBC, dt = torch.split(
                 zxbcdt, [self.d_inner, self.d_inner + 2 * self.ngroups * self.d_state, self.nheads], dim=-1
             )
-            # Input dei canali delle teste (uscita di in_proj, prima della conv): usato per il bypass
-            x_in = xBC[..., :self.d_inner]  # (B, L, d_inner)
             dt = F.softplus(dt + self.dt_bias)  # (B, L, nheads)
             assert self.activation in ["silu", "swish"]
 
@@ -218,10 +199,6 @@ class Mamba2Simple(nn.Module):
                 **dt_limit_kwargs,
             )
             y = rearrange(y, "b l h p -> b l (h p)")
-
-            # MASCHERA: teste spente -> output = input (prima di gate e norm)
-            if not self.all_active:
-                y = torch.where(self.active_channel_mask, y, x_in.to(dtype=y.dtype))
 
             # Multiply "gate" branch and apply extra normalization layer
             y = self.norm(y, z)

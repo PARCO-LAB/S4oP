@@ -58,23 +58,11 @@ class Mamba(nn.Module):
         self.dt_rank = math.ceil(self.d_model / 16) if dt_rank == "auto" else dt_rank
         self.use_fast_path = use_fast_path
         self.layer_idx = layer_idx
-        self.d_inner = d_model * self.expand
         
-        # --- Canali attivi ---
-        if active_idx is None:
-            active_idx = range(self.d_inner)
-        elif isinstance(active_idx, torch.Tensor):
-            active_idx = active_idx.flatten().tolist()
-        self.active_idx = sorted(int(i) for i in active_idx)
-
-        # --- Mask ---
-        active_mask = torch.zeros(self.d_inner, dtype=torch.bool)
-        if self.active_idx:
-            active_mask[torch.tensor(self.active_idx, dtype=torch.long)] = True
-        if device is not None:
-            active_mask = active_mask.to(device)
-        self.register_buffer("active_mask", active_mask, persistent=False)
-        self.all_active = bool(active_mask.all())
+        if not isinstance(active_idx, (list, tuple)):
+            active_idx = list(active_idx)
+        self.active_idx = active_idx
+        self.d_inner = len(active_idx)
 
         self.in_proj = nn.Linear(self.d_model, self.d_inner * 2, bias=bias, **factory_kwargs)
 
@@ -133,28 +121,6 @@ class Mamba(nn.Module):
 
         self.out_proj = nn.Linear(self.d_inner, self.d_model, bias=bias, **factory_kwargs)
 
-    # ------------------------------------------------------------------
-    # Maschere
-    # ------------------------------------------------------------------
-    def _channel_mask(self, ndim, channel_dim):
-        """Maschera dei canali attivi con shape broadcastabile (d_inner sulla dim channel_dim)."""
-        shape = [1] * ndim
-        shape[channel_dim] = self.d_inner
-        return self.active_mask.view(shape) # view qua cambia la forma della maschera -> (1, d_inner, 1) nel forward, in step (1, d_inner)
- 
-    def _mask_x_proj_input(self, x, channel_dim):
-        """MASCHERA 1: azzera i canali spenti nell'input di x_proj."""
-        if self.all_active:
-            return x
-        return x * self._channel_mask(x.dim(), channel_dim).to(dtype=x.dtype)
- 
-    def _bypass_inactive(self, y, x_in, z, channel_dim):
-        """MASCHERA 2: per i canali spenti y = x_in * SiLU(z)."""
-        if self.all_active:
-            return y
-        bypass = (x_in * F.silu(z)).to(dtype=y.dtype) # Calcoliamo il bypass per tutti i canali perchè è più semplice
-        return torch.where(self._channel_mask(y.dim(), channel_dim), y, bypass) # Sceglie elemento per elemento: dove la maschera è True prende y (output dell'SSM), dove è False prende il bypass
-
     def forward(self, hidden_states, inference_params=None):
         """
         hidden_states: (B, L, D)
@@ -182,7 +148,7 @@ class Mamba(nn.Module):
 
         A = -torch.exp(self.A_log.float())  # (d_inner, d_state)
         # In the backward pass we write dx and dz next to each other to avoid torch.cat
-        if on_gpu and self.use_fast_path and causal_conv1d_fn is not None and inference_params is None and self.all_active:
+        if on_gpu and self.use_fast_path and causal_conv1d_fn is not None and inference_params is None:  # Doesn't support outputting the states
             out = mamba_inner_fn(
                 xz,
                 self.conv1d.weight,
@@ -200,7 +166,6 @@ class Mamba(nn.Module):
             )
         else:
             x, z = xz.chunk(2, dim=1)
-            x_in = x # input dei canali (uscita di in_proj), usato per il bypass
             # Compute short convolution
             if conv_state is not None:
                 # If we just take x[:, :, -self.d_conv :], it will error if seqlen < self.d_conv
@@ -220,8 +185,7 @@ class Mamba(nn.Module):
             # We're careful here about the layout, to avoid extra transposes.
             # We want dt to have d as the slowest moving dimension
             # and L as the fastest moving dimension, since those are what the ssm_scan kernel expects.
-            # MASCHERA 1: x_proj vede solo i canali attivi
-            x_dbl = self.x_proj(rearrange(self._mask_x_proj_input(x, channel_dim=1), "b d l -> (b l) d"))  # (bl d)
+            x_dbl = self.x_proj(rearrange(x, "b d l -> (b l) d"))  # (bl d)
             dt, B, C = torch.split(x_dbl, [self.dt_rank, self.d_state, self.d_state], dim=-1)
             dt = self.dt_proj.weight @ dt.t()
             dt = rearrange(dt, "d (b l) -> b d l", l=seqlen)
@@ -244,8 +208,6 @@ class Mamba(nn.Module):
             if ssm_state is not None:
                 y, last_state = y
                 ssm_state.copy_(last_state)
-            # MASCHERA 2: canali spenti -> y = x_in * SiLU(z)
-            y = self._bypass_inactive(y, x_in, z, channel_dim=1)  # (B, d_inner, L)
             y = rearrange(y, "b d l -> b l d")
             out = self.out_proj(y)
         return out

@@ -1,6 +1,8 @@
 # S4oP: Operator-level Pruning of State Space Models
 
-Official implementation of **"S4oP: Operator-level Pruning of Structured State Space Models for Resource-Constrained Devices"**, presented at **IFIP/IEEE VLSI-SoC 2026**.
+[![arXiv](https://img.shields.io/badge/arXiv-2606.18096-b31b1b.svg)](https://arxiv.org/abs/2606.18096)
+
+Official implementation of **"[S4oP: Operator-level Pruning of Structured State Space Models for Resource-Constrained Devices](https://arxiv.org/abs/2606.18096)"**, presented at **IFIP/IEEE VLSI-SoC 2026**.
 
 S4oP is a framework to **train, test, and prune S4 and S4D models** for efficient inference on resource-constrained devices. Instead of sparsifying individual weights, S4oP removes entire SSM operators (channels), so the pruned models are genuinely faster on real hardware, without relying on sparse kernels.
 
@@ -10,8 +12,12 @@ S4oP is a framework to **train, test, and prune S4 and S4D models** for efficien
 
 - **Operator-level pruning.** In S4 and S4D, each channel is an independent SSM operator running in parallel. A pruned channel is bypassed by forwarding its input directly to the output, so tensor shapes are preserved and downstream layers are untouched.
 - **Incremental greedy search.** The pruning rate increases step by step (by default 10 → 30 → 50 → 70 → 90%). At each step, several random seeds are evaluated: each seed prunes a different set of channels, the model is fine-tuned, and the candidate with the best validation score is kept. The best model becomes the starting point of the next step, so channels pruned at one rate stay pruned at the next.
-- **Depth-aware allocation.** The pruning budget is distributed across layers with exponentially increasing weights (∝ 2^i), so deeper layers are pruned more aggressively. At least one channel is always kept per layer.
+- **Depth-aware allocation.** The pruning budget is distributed across layers with exponentially increasing weights (2^i), so deeper layers are pruned more aggressively. The first layer is pruned only after all deeper layers are saturated, and at least one channel is always kept per layer. See Algorithm 1 in the [paper](https://arxiv.org/abs/2606.18096) and its implementation in `get_pruning_idx_exponential` (`s4op.py`).
 - **A family of models as output.** The framework returns one model per pruning rate. Each can be profiled for accuracy, latency, and memory, so you can deploy the one that fits your accuracy/latency trade-off.
+
+<p align="center">
+  <img src="assets/S4oP.png" alt="S4oP overview" width="600">
+</p>
 
 ## Supported models and datasets
 
@@ -28,8 +34,7 @@ S4oP/
 ├── latency.py               # Latency / memory measurement (batch size 1, no dataset needed)
 ├── models_config.py         # Architecture and training hyperparameters per model/dataset
 ├── pruning_config.py        # Pruning rates, seeds, and fine-tuning settings
-├── setup_env.sh             # Environment setup script (cluster-specific, see below)
-├── *.sh                     # Example SLURM job scripts
+├── assets/                  # Images used in this README
 └── models_datasets_and_profiling_implementation/
     ├── model/               # Training, fine-tuning, testing, profiling, model definitions
     ├── dataset/             # Dataset loaders (see "Datasets")
@@ -56,25 +61,20 @@ pip install -r requirements.txt
 
 `pykeops` is optional and only used by the full S4 Cauchy kernel.
 
-`setup_env.sh` performs the same steps with [uv](https://github.com/astral-sh/uv) and environment modules on a SLURM cluster; it also compiles the Mamba kernels, which are not needed for S4 and S4D. To use it, edit `PROJECT_DIR` and `CUDA_MODULE` at the top of the script.
-
 ## Datasets
 
 ### Our data setup
 
-All paths are relative, so **run every script from the repository root**. This is how we organized the data for our experiments:
+All paths are relative, so **run every script from the repository root**. This is how we organized the data for our experiments (the `data/` folder is ignored by git):
 
 ```
-parent_folder/
-├── pathfinder/                  # Note: Pathfinder is expected OUTSIDE the repository
-│   ├── imgs/
-│   └── metadata/
-└── S4oP/
-    └── data/
-        ├── listops/             train.tsv, val.tsv, test.tsv
-        ├── image/               lra-image.{train,dev,test}.pickle
-        ├── retrieval/           lra-retrieval.{train,dev,test}.pickle
-        └── ecg/                 exams.csv, exams_part{0..4}.hdf5, ecg_test.hdf5, gold_standard.csv
+S4oP/
+└── data/
+    ├── listops/             train.tsv, val.tsv, test.tsv
+    ├── pathfinder/          imgs/, metadata/
+    ├── image/               lra-image.{train,dev,test}.pickle
+    ├── retrieval/           lra-retrieval.{train,dev,test}.pickle
+    └── ecg/                 exams.csv, exams_part{0..4}.hdf5, ecg_test.hdf5, gold_standard.csv
 ```
 
 - **IMDb**: downloaded automatically from the Hugging Face Hub (`stanfordnlp/imdb`) and tokenized with `bert-base-uncased` (4096 tokens).
@@ -154,8 +154,6 @@ Measurements use batch size 1 and the full sequence length of each dataset, aver
 
 Checkpoints are saved as a dictionary with `model_state_dict` and `active_idx_layers` (the indices of the channels still active in each layer), so a pruned model can be rebuilt with the right shape.
 
-The `.sh` files are example SLURM job scripts used on our cluster; adapt the `#SBATCH` options to your environment.
-
 ## Work in progress
 
 The following parts of the repository are under active development. **They are not part of the published results; the code is still being refined and further experiments are ongoing**, so results obtained with them should not be considered official.
@@ -170,14 +168,17 @@ The following parts of the repository are under active development. **They are n
 
 ## Citation
 
-If you use this code, please cite:
+If you use this code, please cite our paper (the proceedings version will be added once available):
 
 ```bibtex
-@inproceedings{deano2026s4op,
-  title     = {S4oP: Operator-level Pruning of Structured State Space Models for Resource-Constrained Devices},
-  author    = {Deano, Marco and Ziche, Filippo and Bombieri, Nicola},
-  booktitle = {Proceedings of the IFIP/IEEE International Conference on Very Large Scale Integration (VLSI-SoC)},
-  year      = {2026}
+@misc{deano2026s4op,
+  title         = {S4oP: Operator-level Pruning of Structured State Space Models for Resource-Constrained Devices},
+  author        = {Deano, Marco and Ziche, Filippo and Bombieri, Nicola},
+  year          = {2026},
+  eprint        = {2606.18096},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2606.18096}
 }
 ```
 

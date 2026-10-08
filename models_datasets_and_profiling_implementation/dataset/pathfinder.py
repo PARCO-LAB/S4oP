@@ -69,7 +69,7 @@ class LRAPathfinder(DatasetInterface):
         super().__init__("pathfinder", batch_size, num_workers)
 
         # Percorso base (relativo: lanciare il training dalla cartella S4oP/)
-        root_data = "../pathfinder"
+        root_data = "data/pathfinder"
         imgs_dir = os.path.join(root_data, "imgs")
         metadata_dir = os.path.join(root_data, "metadata")
 
