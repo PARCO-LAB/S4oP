@@ -347,7 +347,7 @@ MODELS_CONFIG = {
         {
             "d_state": 64,
             "depth": 12,
-            "features": 13, # 256
+            "features": 256,
             "norm": "LN",
             "pre-norm": True,
             "dropout": 0.3,
@@ -434,7 +434,7 @@ MODELS_CONFIG = {
         {
             "d_state": 64,
             "depth": 6,
-            "features": 256, # 256
+            "features": 256,
             "headdim": 16, 
             "norm": "LN",
             "pre-norm": True,
@@ -449,7 +449,7 @@ MODELS_CONFIG = {
         {
             "d_state": 64,
             "depth": 12,
-            "features": 256, # 256
+            "features": 256, 
             "headdim": 16,
             "norm": "LN",
             "pre-norm": True,
@@ -464,7 +464,7 @@ MODELS_CONFIG = {
         {
             "d_state": 64,
             "depth": 4,
-            "features": 256, # 256
+            "features": 256, 
             "headdim": 16,
             "norm": "LN",
             "pre-norm": True,

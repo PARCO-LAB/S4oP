@@ -41,9 +41,5 @@ class FineTuning:
         ckpt = torch.load(self.checkpoint_folder, map_location=get_device())
         self.model_train.model.load_state_dict(ckpt["model_state_dict"])
 
-        if self.model_train.dataset.multilabel:
-            _, _, val_f1 = self.model_train.val_step(criterion)
-            return val_f1
-        else:
-            val_accuracy, _ = self.model_train.val_step(criterion)
-            return val_accuracy
+        metrics = self.model_train.val_step(criterion)
+        return metrics[self.model_train.metric]

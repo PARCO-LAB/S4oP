@@ -182,8 +182,12 @@ def convert_layer_s4(masked_layer, structural_layer, local_idx=None):
         masked_layer.output_linear.state_dict()
     )
 
+def _same_shapes(src, dst):
+    s, d = src.state_dict(), dst.state_dict()
+    return s.keys() == d.keys() and all(s[k].shape == d[k].shape for k in s)
+
 def convert_layer_mamba(masked_layer, structural_layer, local_idx=None):
-    if local_idx is None:
+    if local_idx is None or _same_shapes(masked_layer, structural_layer):
         structural_layer.load_state_dict(masked_layer.state_dict())
         return
 
@@ -227,7 +231,7 @@ def convert_layer_mamba(masked_layer, structural_layer, local_idx=None):
         structural_layer.out_proj.bias.data.copy_(masked_layer.out_proj.bias.data)
 
 def convert_layer_mamba2(masked_layer, structural_layer, local_heads=None):
-    if local_heads is None:
+    if local_heads is None or _same_shapes(masked_layer, structural_layer):
         structural_layer.load_state_dict(masked_layer.state_dict())
         return
 
