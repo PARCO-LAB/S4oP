@@ -1,4 +1,5 @@
 """Minimal version of S4D with operator pruning support."""
+# Adapted from https://github.com/state-spaces/s4 (Apache License 2.0).
 
 import math
 import torch

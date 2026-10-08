@@ -1,4 +1,5 @@
 """Standalone version of Structured State Space sequence model (S4)."""
+# Adapted from https://github.com/state-spaces/s4 (Apache License 2.0).
 
 from collections import defaultdict
 from typing import Optional, Mapping, Tuple, Union

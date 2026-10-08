@@ -1,70 +1,46 @@
 # =============================================================================
-# requirements.txt  —  S4oP (S4/S4D pruning) + Mamba-1 (strada CUDA / parallel scan)
+# S4oP - Python dependencies
 # =============================================================================
+# Install PyTorch FIRST, with the CUDA build matching your system, e.g.:
+#   pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cu128
+# Then:
+#   pip install -r requirements.txt
 #
-# ORDINE DI INSTALLAZIONE (importante!):
-#   1) Installa PRIMA torch con la build CUDA giusta per la tua macchina, es.:
-#        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
-#      (scegli cu121/cu124/cu126 in base al tuo CUDA toolkit)
-#   2) Poi:  pip install -r requirements.txt
-#
-# PREREQUISITI DI SISTEMA (non installabili via pip):
-#   - GPU NVIDIA + driver
-#   - CUDA toolkit con nvcc, stessa major version del torch CUDA installato
-#   - build tools (gcc/g++); su Linux è la strada supportata
-#
-# Nota: causal-conv1d e mamba-ssm COMPILANO estensioni CUDA al momento dell'install.
-#       Se il build fallisce, prova:  pip install <pkg> --no-build-isolation
-#       (richiede torch + packaging + ninja già installati)
+# Validated configuration: Python 3.13, PyTorch 2.8.0, torchvision 0.23.0, CUDA 12.8.
+# On NVIDIA Jetson boards, install the PyTorch wheel provided by NVIDIA for your
+# JetPack version instead.
 # =============================================================================
 
-
-# ---------------------------------------------------------------------------
-# Core deep learning  (installare torch PRIMA, vedi sopra; qui non pinnato)
-# ---------------------------------------------------------------------------
+# Core (installed in the step above; not pinned, so platform-specific builds are kept)
 torch
 torchvision
 
-# ---------------------------------------------------------------------------
-# Mamba — strada CUDA con parallel scan
-#   mamba-ssm fornisce l'estensione compilata 'selective_scan_cuda'
-#   2.2.x = Mamba-1/2 con kernel classici, SENZA tilelang/tvm (più leggero)
-# ---------------------------------------------------------------------------
-# mamba-ssm==2.2.2
-# causal-conv1d>=1.4.0
-# triton>=2.0.0
-
-# Build tools richiesti da mamba-ssm / causal-conv1d
-ninja
-packaging
-
-# ---------------------------------------------------------------------------
-# Utilità modello / pruning / ispezione  (da S4oP)
-# ---------------------------------------------------------------------------
-torch-pruning
-torchinfo
-torchsummary
-torchviz
-einops
-
-# ---------------------------------------------------------------------------
-# Dati, I/O, scienza  (da S4oP)
-# ---------------------------------------------------------------------------
+# Models
 numpy
 scipy
+pytorch-lightning
+
+# Datasets
 pandas
-scikit-learn
 h5py
-openpyxl
 Pillow
 datasets
 transformers
 
-# ---------------------------------------------------------------------------
-# Opzionali
-#   pykeops: solo se usi il kernel Cauchy "full" di S4 (ha suoi requisiti di build);
-#            l'implementazione minimale S4D funziona senza.
-#   pytorch-lightning: presente in alcuni moduli S4oP; rimuovi se non lo usi.
-# ---------------------------------------------------------------------------
+# Training, evaluation and profiling
+scikit-learn
+torchinfo
+torchsummary
+torchviz
+
+# -----------------------------------------------------------------------------
+# Optional
+# -----------------------------------------------------------------------------
+# Full S4 Cauchy kernel (not needed for S4D):
 # pykeops
-pytorch-lightning
+
+# Mamba / Mamba2 (work in progress, see README). These packages compile CUDA
+# extensions and must be installed separately:
+#   pip install ninja packaging einops
+#   pip install mamba-ssm==2.3.0 --no-build-isolation
+#   pip install causal-conv1d --no-build-isolation
